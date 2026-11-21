@@ -12,11 +12,11 @@
 //! is what [`Association::client`] and [`Association::server`] are for.
 //!
 //! ```no_run
-//! # use iec61850_rs::common::Instant;
-//! # use iec61850_rs::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
-//! # use iec61850_rs::proto::mms::ConfirmedRequest;
+//! # use iec61850_kit::common::Instant;
+//! # use iec61850_kit::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
+//! # use iec61850_kit::proto::mms::ConfirmedRequest;
 //! # fn send(_: &[u8]) {}
-//! # fn main() -> iec61850_rs::Result<()> {
+//! # fn main() -> iec61850_kit::Result<()> {
 //! let mut a = Association::client(AssociationConfig::default());
 //! a.start(Instant::ZERO)?;
 //! while let Some(out) = a.poll_transmit() {
@@ -1428,7 +1428,7 @@ mod tests {
         assert_eq!(*invoke_id, id);
         assert!(matches!(Mms::parse(pdu, &Limits::DEFAULT).unwrap(), Mms::ConfirmedRequest { service: ConfirmedRequest::Identify, .. }));
 
-        s.respond(id, &ConfirmedResponse::Identify { vendor: "hupe1980", model: "iec61850-rs", revision: "0.1" }).unwrap();
+        s.respond(id, &ConfirmedResponse::Identify { vendor: "hupe1980", model: "iec61850-kit", revision: "0.1" }).unwrap();
         pump(&mut c, &mut s, now);
 
         let seen = events(&mut c);

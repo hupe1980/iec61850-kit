@@ -13,11 +13,11 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use iec61850_rs::common::{Instant, MacAddr, TimeQuality, UtcTime, monotonic_now};
-use iec61850_rs::net::{Link, LinkOptions, Receive};
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, Frame, FrameHeader, VlanTag};
-use iec61850_rs::proto::goose::{Invalid, Publisher, PublisherConfig, Retransmission, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::common::{Instant, MacAddr, TimeQuality, UtcTime, monotonic_now};
+use iec61850_kit::net::{Link, LinkOptions, Receive};
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, Frame, FrameHeader, VlanTag};
+use iec61850_kit::proto::goose::{Invalid, Publisher, PublisherConfig, Retransmission, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
 
 struct Counting;
 static ALLOCATIONS: AtomicU64 = AtomicU64::new(0);
@@ -128,7 +128,7 @@ fn goose_crosses_a_real_link_and_the_subscriber_rules_hold_on_it() {
 /// One second of 4800 frames/s sampled values reaches the subscriber without a gap.
 #[test]
 fn a_second_of_sampled_values_arrives_without_a_gap() {
-    use iec61850_rs::proto::sv::{
+    use iec61850_kit::proto::sv::{
         Publisher as SvPublisher, PublisherConfig as SvConfig, SmpSynch, StreamConfig, StreamKey, Subscriber as SvSubscriber, SubscriberEvent as SvEvent,
         SvProfile,
     };
@@ -195,7 +195,7 @@ fn an_open_link_survives_dropping_the_capability() {
     // libtest's main thread exists and still holds the capability, so the drop reports it
     // rather than claiming the process is unprivileged — and has still dropped this thread's.
     // The whole-process case is `ied sim --iface`, checked thread by thread below.
-    let err = iec61850_rs::net::drop_capabilities().expect_err("another thread is privileged");
+    let err = iec61850_kit::net::drop_capabilities().expect_err("another thread is privileged");
     assert!(err.to_string().contains("still hold capabilities"), "{err}");
     let status = std::fs::read_to_string("/proc/thread-self/status").unwrap();
     for cap in ["CapEff:", "CapPrm:"] {

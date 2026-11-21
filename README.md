@@ -1,16 +1,16 @@
-# iec61850-rs
+# iec61850-kit
 
-[![CI](https://github.com/hupe1980/iec61850-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/hupe1980/iec61850-rs/actions/workflows/ci.yml)
+[![CI](https://github.com/hupe1980/iec61850-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/hupe1980/iec61850-kit/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#licence)
 
 **IEC 61850 in Rust.** Publishers and subscribers for the substation process bus, an MMS
 **client and server** for the station bus, panic-free decoders, sans-IO state machines, and
 encoders checked against real substation captures frame for frame.
 
-📖 **[Documentation and guide](https://hupe1980.github.io/iec61850-rs/)** · 📋 **[Changelog](CHANGELOG.md)**
+📖 **[Documentation and guide](https://hupe1980.github.io/iec61850-kit/)** · 📋 **[Changelog](CHANGELOG.md)**
 
 > **Pre-1.0.** The API changes between minor versions, and the crate has not been through a
-> conformance laboratory — see [Verification](https://hupe1980.github.io/iec61850-rs/docs/verification/).
+> conformance laboratory — see [Verification](https://hupe1980.github.io/iec61850-kit/docs/verification/).
 
 ## Features
 
@@ -40,9 +40,9 @@ GOOSE/SV (IEC TR 61850-90-5), unicast SV, and encoding fixed-length GOOSE (decod
 ## Install
 
 ```bash
-cargo add iec61850-rs
+cargo add iec61850-kit
 brew install hupe1980/tap/ied                # the `ied` command line (macOS arm64, Linux)
-cargo install iec61850-rs --features cli    # …or from source; binaries are on each release
+cargo install iec61850-kit --features cli    # …or from source; binaries are on each release
 ```
 
 Dependencies are optional and per feature: `roxmltree` (`scl`), `redb` (`log-redb`) and
@@ -55,8 +55,8 @@ Dependencies are optional and per feature: `roxmltree` (`scl`), `redb` (`log-red
 Subscribe to a GOOSE stream — feed it frames and timer ticks, drain its events:
 
 ```rust
-use iec61850_rs::MacAddr;
-use iec61850_rs::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::MacAddr;
+use iec61850_kit::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
 
 let mut sub = Subscriber::new(SubscriberConfig::new(SubscriptionKey {
     dst: MacAddr::parse("01-0C-CD-01-00-05")?,
@@ -77,7 +77,7 @@ Every core takes inputs and the caller's *now*, yields outputs, and says when to
 again — no sockets, threads or clock reads. Subscribers can be configured from the SCD:
 
 ```rust
-let subs = iec61850_rs::scl::subscriptions(&scd, "IED2", 50)?;   // 50 Hz system
+let subs = iec61850_kit::scl::subscriptions(&scd, "IED2", 50)?;   // 50 Hz system
 for s in &subs.goose {
     subscribers.push(Subscriber::new(s.goose_config()));
 }
@@ -86,7 +86,7 @@ for s in &subs.goose {
 A sampled-value subscription carries the publisher's channel layout, so samples arrive decoded:
 
 ```rust
-let mut sv = iec61850_rs::proto::sv::Subscriber::new(subs.sv.iter().map(|s| s.sv_config()).collect());
+let mut sv = iec61850_kit::proto::sv::Subscriber::new(subs.sv.iter().map(|s| s.sv_config()).collect());
 sv.on_frame(now, &frame, |s| {
     for (channel, value) in s.channels() {      // "LD0/TCTR1.AmpSv.instMag.i" = 12345
         protection.feed(&channel.name, value);
@@ -97,7 +97,7 @@ sv.on_frame(now, &frame, |s| {
 An MMS client — `connect` sets up the OSI layers, ACSE and MMS `Initiate`:
 
 ```rust
-use iec61850_rs::{Fc, client::Client};
+use iec61850_kit::{Fc, client::Client};
 
 let mut c = Client::connect("10.0.0.5:102")?;
 for ld in c.server_directory()? {                      // the logical devices
@@ -112,7 +112,7 @@ c.release()?;
 Reports come back decoded, according to the control block's `OptFlds`:
 
 ```rust
-use iec61850_rs::client::{RcbSettings, TrgOps};
+use iec61850_kit::client::{RcbSettings, TrgOps};
 
 c.enable_rcb("IED1LD0/LLN0$RP$urcb01", Fc::RP,
              &RcbSettings::new().with_useful_fields().with_trg_ops(TrgOps::EVENTS))?;
@@ -128,8 +128,8 @@ while let Some(r) = c.next_report(Duration::from_secs(5))? {
 Controls are one call for all four models; a refusal is an error carrying its `AddCause`:
 
 ```rust
-use iec61850_rs::client::{Check, ControlModel, OriginCategory};
-use iec61850_rs::proto::data::Dbpos;
+use iec61850_kit::client::{Check, ControlModel, OriginCategory};
+use iec61850_kit::proto::data::Dbpos;
 
 c.control("IED1LD0/CSWI1.Pos")
     .model(ControlModel::SboEnhanced)                  // read it from the SCD, or ask the server
@@ -164,7 +164,7 @@ assert_eq!(oper.component_names(), ["ctlVal", "origin", "ctlNum", "T", "Test", "
 A server, configured entirely by its SCL file:
 
 ```rust
-use iec61850_rs::server::{Ied, Server, Stage};
+use iec61850_kit::server::{Ied, Server, Stage};
 
 let mut server = Server::bind("0.0.0.0:102", Ied::from_scl_file("relay.cid", None)?)?;
 server.on_control(Box::new(|event| match event.stage {      // what the switchgear says
@@ -245,7 +245,7 @@ cargo run --example supervised_subscriber  # a GOOSE subscription's health, publ
 - **OpenSCD's SCL files** load, every data-set member resolves, and every file round-trips
   through the editor byte for byte.
 
-What this does not prove: [Verification](https://hupe1980.github.io/iec61850-rs/docs/verification/).
+What this does not prove: [Verification](https://hupe1980.github.io/iec61850-kit/docs/verification/).
 
 ## Develop
 

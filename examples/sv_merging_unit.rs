@@ -12,10 +12,10 @@
 
 use std::error::Error;
 
-use iec61850_rs::common::{Instant, Quality};
-use iec61850_rs::proto::ethernet::{ETHERTYPE_SV, FrameHeader, MacAddr};
-use iec61850_rs::proto::sv::le::PhsMeas1;
-use iec61850_rs::proto::sv::{Publisher, PublisherConfig, SmpSynch, StreamConfig, StreamKey, Subscriber, SubscriberEvent, SvProfile};
+use iec61850_kit::common::{Instant, Quality};
+use iec61850_kit::proto::ethernet::{ETHERTYPE_SV, FrameHeader, MacAddr};
+use iec61850_kit::proto::sv::le::PhsMeas1;
+use iec61850_kit::proto::sv::{Publisher, PublisherConfig, SmpSynch, StreamConfig, StreamKey, Subscriber, SubscriberEvent, SvProfile};
 
 const APPID: u16 = 0x4000;
 const SV_ID: &str = "MU01";
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if let Some(path) = std::env::args().nth(1) {
         // A capture file is the interface until the raw-socket adapters land — and it is
         // what lets `tshark` and `ied sv monitor` check this output.
-        let mut w = iec61850_rs::pcap::Writer::create(&path)?;
+        let mut w = iec61850_kit::pcap::Writer::create(&path)?;
         for (i, frame) in frames.iter().enumerate() {
             // 2400 frames a second: one frame every 416 667 ns.
             w.write(i as u64 * 416_667, frame)?;

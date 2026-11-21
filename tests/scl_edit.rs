@@ -12,10 +12,10 @@ use std::fmt::Write as _;
 use std::process::Command;
 use std::time::Instant;
 
-use iec61850_rs::common::{Edition, Error, Fc};
-use iec61850_rs::model::{Fcda, GseAddress, IedModel, SmvAddress};
-use iec61850_rs::proto::ethernet::MacAddr;
-use iec61850_rs::scl::{self, CbRef, ControlKind, Document, ExtRefSource, Hitem, LnRef, NewElement};
+use iec61850_kit::common::{Edition, Error, Fc};
+use iec61850_kit::model::{Fcda, GseAddress, IedModel, SmvAddress};
+use iec61850_kit::proto::ethernet::MacAddr;
+use iec61850_kit::scl::{self, CbRef, ControlKind, Document, ExtRefSource, Hitem, LnRef, NewElement};
 use proptest::prelude::*;
 
 const FIXTURE: &str = include_str!("fixtures/edit.scd");

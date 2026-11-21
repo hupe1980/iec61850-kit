@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 
 if [[ "${1:-}" == "--docker" ]]; then
     exec docker run --rm --cap-add NET_ADMIN --cap-add NET_RAW \
-        -v "$PWD":/src/iec61850-rs -w /src/iec61850-rs \
+        -v "$PWD":/src/iec61850-kit -w /src/iec61850-kit \
         -v iec61850-cargo:/usr/local/cargo/registry -v iec61850-target:/target -e CARGO_TARGET_DIR=/target \
         rust:latest bash -c 'command -v ip >/dev/null || { apt-get -qq update && apt-get -qq install -y iproute2 >/dev/null; }; scripts/linux-test.sh --inside'
 fi

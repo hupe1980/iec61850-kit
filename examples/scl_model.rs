@@ -12,8 +12,8 @@
 
 use std::error::Error;
 
-use iec61850_rs::Edition;
-use iec61850_rs::scl::Scl;
+use iec61850_kit::Edition;
+use iec61850_kit::scl::Scl;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let xml = match std::env::args().nth(1) {

@@ -5,10 +5,10 @@
 
 mod common;
 
-use iec61850_rs::common::{Instant, Limits};
-use iec61850_rs::proto::ethernet::{ETHERTYPE_SV, Frame, FrameHeader, MacAddr};
-use iec61850_rs::proto::sv::le::PhsMeas1;
-use iec61850_rs::proto::sv::{
+use iec61850_kit::common::{Instant, Limits};
+use iec61850_kit::proto::ethernet::{ETHERTYPE_SV, Frame, FrameHeader, MacAddr};
+use iec61850_kit::proto::sv::le::PhsMeas1;
+use iec61850_kit::proto::sv::{
     Asdu, ChannelType, ChannelValue, Publisher as SvPublisher, PublisherConfig as SvPublisherConfig, SampleLayout, SavPdu, SavPduView, SmpSynch, StreamConfig,
     StreamKey, Subscriber, SubscriberEvent, SvProfile,
 };

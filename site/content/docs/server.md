@@ -7,7 +7,7 @@ weight = 47
 An IEC 61850 server is a model plus a socket, and the model is the engineering file:
 
 ```rust
-use iec61850_rs::server::{Ied, Server};
+use iec61850_kit::server::{Ied, Server};
 
 let ied = Ied::from_scl_file("relay.cid", None)?;
 let server = Server::bind("0.0.0.0:102", ied)?;
@@ -175,9 +175,9 @@ uses cannot be deleted.
 Frames go to a sink you register before serving:
 
 ```rust
-let link = iec61850_rs::net::Link::open("eth1", &iec61850_rs::net::LinkOptions::process_bus())?;
+let link = iec61850_kit::net::Link::open("eth1", &iec61850_kit::net::LinkOptions::process_bus())?;
 server.publish_on(link)?;                 // or publish_to(|frame| …) for any other transport
-iec61850_rs::net::drop_capabilities()?;   // before Server::run starts any thread
+iec61850_kit::net::drop_capabilities()?;   // before Server::run starts any thread
 server.run()?;
 ```
 
@@ -253,7 +253,7 @@ deadlines). Absolute time — `TimeOfEntry`, log entries, `LActTm`, `QueryLogByT
 `Clock`:
 
 ```rust
-use iec61850_rs::common::{Clock, UtcTime};
+use iec61850_kit::common::{Clock, UtcTime};
 
 // The default is the system clock. Replace it to pin time in a test, or to report the
 // time quality of a PTP- or SNTP-disciplined source.
@@ -265,7 +265,7 @@ server.set_clock(Box::new(my_disciplined_clock));
 All four control models, with a hook where the application decides:
 
 ```rust
-use iec61850_rs::server::Stage;
+use iec61850_kit::server::Stage;
 
 server.on_control(Box::new(|event| match event.stage {
     Stage::Operate => breaker.operate(&event.request.ctl_val).map_err(|_| AddCause::BlockedByProcess),
@@ -297,7 +297,7 @@ Rules the server enforces:
 ## Files
 
 ```rust
-use iec61850_rs::server::DirectoryStore;
+use iec61850_kit::server::DirectoryStore;
 
 server.set_file_store(Box::new(DirectoryStore::new("/var/lib/ied/records")));
 ```
@@ -332,7 +332,7 @@ send, replace or delete a file is one policy, `AcsiConfig::file_write`: `FileWri
 password) or `Anyone`; the store must be writable as well.
 
 ```rust
-use iec61850_rs::server::{AcsiConfig, DirectoryStore, ServerConfig, FileWritePolicy};
+use iec61850_kit::server::{AcsiConfig, DirectoryStore, ServerConfig, FileWritePolicy};
 
 let mut cfg = ServerConfig { acsi: AcsiConfig { file_write: FileWritePolicy::Authenticated, ..AcsiConfig::default() }, ..ServerConfig::default() };
 cfg.association.password = Some("s3cret".into());          // every association must present it
@@ -369,7 +369,7 @@ Entries live in a `LogStore`. The default, `MemoryLog`, is a bounded in-memory r
 `log-redb` feature, `RedbLog` keeps them in a file that survives a restart:
 
 ```rust
-use iec61850_rs::server::RedbLog;
+use iec61850_kit::server::RedbLog;
 
 let logs = server.log_references();
 server.set_log_store(Box::new(RedbLog::open("relay-log.redb", logs, 10_000)?));
@@ -393,7 +393,7 @@ IEC 61850-7-4's `LGOS` (per GOOSE subscription) and `LSVS` (per sampled-value su
 filled from a live subscriber:
 
 ```rust
-use iec61850_rs::server::SubscriptionStatus;
+use iec61850_kit::server::SubscriptionStatus;
 
 updates.txn().supervise("IED2LD0/LGOS1", &SubscriptionStatus::from_goose(&subscriber)).commit();
 ```

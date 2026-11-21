@@ -6,9 +6,9 @@
 
 mod common;
 
-use iec61850_rs::common::{Instant, Limits};
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, Frame, MacAddr};
-use iec61850_rs::proto::goose::{GoosePdu, GoosePduView, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::common::{Instant, Limits};
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, Frame, MacAddr};
+use iec61850_kit::proto::goose::{GoosePdu, GoosePduView, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
 
 #[test]
 fn decodes_every_goose_frame_like_wireshark() {

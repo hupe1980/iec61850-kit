@@ -1,9 +1,9 @@
 #![no_main]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 
-use iec61850_rs::ber::Cursor;
-use iec61850_rs::common::Limits;
-use iec61850_rs::proto::data::{decode_all, Value};
+use iec61850_kit::ber::Cursor;
+use iec61850_kit::common::Limits;
+use iec61850_kit::proto::data::{decode_all, Value};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

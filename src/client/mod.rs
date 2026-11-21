@@ -4,10 +4,10 @@
 //! around it. Connect, ask, get a typed answer:
 //!
 //! ```no_run
-//! use iec61850_rs::client::Client;
-//! use iec61850_rs::Fc;
+//! use iec61850_kit::client::Client;
+//! use iec61850_kit::Fc;
 //!
-//! # fn main() -> iec61850_rs::Result<()> {
+//! # fn main() -> iec61850_kit::Result<()> {
 //! let mut c = Client::connect("10.0.0.5:102")?;
 //! for ld in c.server_directory()? {                      // the logical devices
 //!     for name in c.logical_device_directory(&ld)? {      // the logical nodes and data

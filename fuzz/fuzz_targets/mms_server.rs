@@ -10,10 +10,10 @@
 //! may panic, and every answer must encode: an `Answer` the encoder refuses is a request that
 //! would leave a client waiting for ever.
 
-use iec61850_rs::common::{Instant, Limits};
-use iec61850_rs::model::IedModel;
-use iec61850_rs::proto::mms::{ConfirmedRequest, Mms};
-use iec61850_rs::server::{Acsi, Ied};
+use iec61850_kit::common::{Instant, Limits};
+use iec61850_kit::model::IedModel;
+use iec61850_kit::proto::mms::{ConfirmedRequest, Mms};
+use iec61850_kit::server::{Acsi, Ied};
 use libfuzzer_sys::fuzz_target;
 use std::sync::OnceLock;
 

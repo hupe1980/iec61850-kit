@@ -6,7 +6,7 @@ weight = 60
 
 ```bash
 brew install hupe1980/tap/ied               # macOS arm64, Linux x86-64 and arm64
-cargo install iec61850-rs --features cli    # from source
+cargo install iec61850-kit --features cli    # from source
 ```
 
 Each release also has the binaries for Linux (glibc and musl), macOS and Windows, with a

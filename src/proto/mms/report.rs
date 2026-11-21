@@ -267,7 +267,7 @@ impl Report {
 /// not have to know which kind it is holding.
 ///
 /// ```
-/// # use iec61850_rs::proto::mms::report::{Report, ReportAssembler};
+/// # use iec61850_kit::proto::mms::report::{Report, ReportAssembler};
 /// # fn handle(_: Report) {}
 /// let mut assembler = ReportAssembler::new(8);
 /// # let incoming: Vec<Report> = Vec::new();

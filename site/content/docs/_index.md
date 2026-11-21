@@ -1,17 +1,17 @@
 +++
 title = "Documentation"
-description = "Guide to iec61850-rs: publish and subscribe to GOOSE and Sampled Values, run an MMS client or server on the station bus, load an IED model from SCL, and drive it all from the ied command line."
+description = "Guide to iec61850-kit: publish and subscribe to GOOSE and Sampled Values, run an MMS client or server on the station bus, load an IED model from SCL, and drive it all from the ied command line."
 sort_by = "weight"
 template = "section.html"
 page_template = "page.html"
 +++
 
-`iec61850-rs` is a Rust library and command line for **IEC 61850**: the **GOOSE** messages
+`iec61850-kit` is a Rust library and command line for **IEC 61850**: the **GOOSE** messages
 that carry protection signals between IEDs, the **Sampled Values** that carry
 instrument-transformer measurements to them, and the **MMS** station bus above both.
 
 These pages are the guide. The per-item API reference lives on
-[docs.rs](https://docs.rs/iec61850-rs).
+[docs.rs](https://docs.rs/iec61850-kit).
 
 ## Where to start
 

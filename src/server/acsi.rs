@@ -469,7 +469,7 @@ impl Default for AcsiConfig {
     fn default() -> AcsiConfig {
         AcsiConfig {
             vendor: String::from("hupe1980"),
-            model: String::from("iec61850-rs"),
+            model: String::from("iec61850-kit"),
             revision: String::from(env!("CARGO_PKG_VERSION")),
             // Conservative: the smallest PDU a peer may negotiate is well above this, and a
             // page that is too small costs a round trip while one that is too big costs the

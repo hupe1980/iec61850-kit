@@ -1,16 +1,16 @@
 +++
 title = "Getting started"
-description = "Install iec61850-rs, decode a GOOSE frame, subscribe to a stream, publish sampled values, and talk MMS as a client or a server — with the feature flags that keep the build small."
+description = "Install iec61850-kit, decode a GOOSE frame, subscribe to a stream, publish sampled values, and talk MMS as a client or a server — with the feature flags that keep the build small."
 weight = 10
 +++
 
 ## Install
 
 ```bash
-cargo add iec61850-rs
+cargo add iec61850-kit
 ```
 
-The package is `iec61850-rs`; the library it provides is `iec61850_rs`, as Cargo's usual
+The package is `iec61850-kit`; the library it provides is `iec61850_kit`, as Cargo's usual
 hyphen-to-underscore rule implies. (`iec61850` on crates.io belongs to an unrelated project.)
 
 | Feature | Effect |
@@ -31,9 +31,9 @@ There is no `alloc` feature: the crate is `no_std` **+ alloc** in every configur
 feature builds on its own, and so does none of them.
 
 ```bash
-cargo add iec61850-rs --no-default-features --features goose   # GOOSE on an MCU
+cargo add iec61850-kit --no-default-features --features goose   # GOOSE on an MCU
 brew install hupe1980/tap/ied                                  # the command line
-cargo install iec61850-rs --features cli                       # …or from source
+cargo install iec61850-kit --features cli                       # …or from source
 ```
 
 The crate has **no mandatory dependencies**. The optional ones come with a feature each:
@@ -46,8 +46,8 @@ Everything on the process bus is an Ethernet frame carrying a BER-encoded PDU. P
 two steps, and neither can panic on hostile input:
 
 ```rust
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, Frame};
-use iec61850_rs::proto::goose::GoosePduView;
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, Frame};
+use iec61850_kit::proto::goose::GoosePduView;
 
 let frame = Frame::parse(bytes)?;          // link layer: MAC, VLAN, APPID, length
 if frame.ethertype == ETHERTYPE_GOOSE {
@@ -64,9 +64,9 @@ if frame.ethertype == ETHERTYPE_GOOSE {
 A subscriber is a state machine: feed it frames and timer ticks, and drain its events:
 
 ```rust
-use iec61850_rs::common::Instant;
-use iec61850_rs::proto::ethernet::MacAddr;
-use iec61850_rs::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::common::Instant;
+use iec61850_kit::proto::ethernet::MacAddr;
+use iec61850_kit::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
 
 let mut sub = Subscriber::new(SubscriberConfig::new(SubscriptionKey {
     dst: MacAddr::parse("01-0C-CD-01-00-05")?,
@@ -92,7 +92,7 @@ mismatches and simulated frames are filtered out before they reach you, and coun
 The values are the data set's members; the `Typed` trait reads each as its IEC 61850-7-3 type:
 
 ```rust
-use iec61850_rs::proto::data::{Dbpos, Typed};
+use iec61850_kit::proto::data::{Dbpos, Typed};
 
 let closed = values[0].member(0).and_then(Typed::as_dbpos) == Some(Dbpos::On);
 let quality = values[0].member(1).and_then(Typed::as_quality);
@@ -103,7 +103,7 @@ Nothing is coerced: an integer where a boolean was engineered returns `None`.
 ## Publish sampled values
 
 ```rust
-use iec61850_rs::proto::sv::{Publisher, PublisherConfig, SmpSynch, SvProfile};
+use iec61850_kit::proto::sv::{Publisher, PublisherConfig, SmpSynch, SvProfile};
 
 // 9-2LE, 80 samples per cycle at 50 Hz.
 let mut mu = Publisher::new(PublisherConfig::new(header, "MU01", SvProfile::LE_80_50HZ))?;
@@ -124,9 +124,9 @@ An ASDU's sample block is the data set's members written back to back, so a subs
 be told the shape. `scl::subscriptions` reads it from the engineering file:
 
 ```rust
-use iec61850_rs::proto::sv::Subscriber;
+use iec61850_kit::proto::sv::Subscriber;
 
-let subs = iec61850_rs::scl::subscriptions(&scd, "IED2", 50)?;
+let subs = iec61850_kit::scl::subscriptions(&scd, "IED2", 50)?;
 let mut sv = Subscriber::new(subs.sv.iter().map(|s| s.sv_config()).collect());
 
 sv.on_frame(now, &frame, |sample| {
@@ -147,7 +147,7 @@ The station bus is a connection. `Client::connect` opens all six OSI layers, the
 association and the MMS `Initiate` in one call, with no async runtime:
 
 ```rust
-use iec61850_rs::{Fc, client::Client};
+use iec61850_kit::{Fc, client::Client};
 
 let mut c = Client::connect("10.0.0.5:102")?;
 for ld in c.server_directory()? {                      // the logical devices
@@ -162,7 +162,7 @@ c.release()?;
 Reports come back decoded, with exactly the fields the control block's `OptFlds` selects:
 
 ```rust
-use iec61850_rs::client::{RcbSettings, TrgOps};
+use iec61850_kit::client::{RcbSettings, TrgOps};
 
 c.enable_rcb("IED1LD0/LLN0$RP$urcb01", Fc::RP,
              &RcbSettings::new().with_useful_fields().with_trg_ops(TrgOps::EVENTS))?;
@@ -178,8 +178,8 @@ A control is one call whichever of the four models the object uses. A refused co
 back as `Error::ControlRejected` with its `AddCause`, never as a successful write:
 
 ```rust
-use iec61850_rs::client::{Check, ControlModel, OriginCategory};
-use iec61850_rs::proto::data::Dbpos;
+use iec61850_kit::client::{Check, ControlModel, OriginCategory};
+use iec61850_kit::proto::data::Dbpos;
 
 c.control("IED1LD0/CSWI1.Pos")
     .model(ControlModel::SboEnhanced)
@@ -205,7 +205,7 @@ c.edit_setting_group("IED1LD0/LLN0$SP$SGCB", 2,               // select ▸ writ
 which is an SCL file and a socket:
 
 ```rust
-use iec61850_rs::server::{Ied, Server};
+use iec61850_kit::server::{Ied, Server};
 
 let server = Server::bind("0.0.0.0:102", Ied::from_scl_file("relay.cid", None)?)?;
 server.handle().txn().set("IED1LD0/PTRC1$ST$Tr$general", Value::Boolean(true)).commit();
@@ -218,7 +218,7 @@ The protocol cores never open a socket ([why](@/docs/protocols.md#sans-io)); fra
 wherever you get them. Capture files are a ready source and sink:
 
 ```rust
-use iec61850_rs::pcap::Capture;
+use iec61850_kit::pcap::Capture;
 
 for (nanos, frame) in Capture::read("bay.pcap")?.frames {
     sub.on_frame(Instant(nanos), &frame);
@@ -229,10 +229,10 @@ On a live network, the `net` feature's `Link` hands frames to the same `on_frame
 monotonic instant they arrived at:
 
 ```rust
-use iec61850_rs::net::{Link, LinkOptions};
+use iec61850_kit::net::{Link, LinkOptions};
 
 let mut link = Link::open("eth1", &LinkOptions::goose().join(key.dst))?;
-iec61850_rs::net::drop_capabilities()?;      // CAP_NET_RAW is not needed any more
+iec61850_kit::net::drop_capabilities()?;      // CAP_NET_RAW is not needed any more
 while let Some(rx) = link.recv(Some(Duration::from_millis(10)))? {
     sub.on_frame(rx.at, rx.frame);           // rx.wire_time: the kernel's timestamp
 }

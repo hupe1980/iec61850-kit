@@ -11,10 +11,10 @@
 
 use std::error::Error;
 
-use iec61850_rs::common::{Instant, Quality, TimeQuality, UtcTime};
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
-use iec61850_rs::proto::goose::{Publisher, PublisherConfig, Retransmission, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::common::{Instant, Quality, TimeQuality, UtcTime};
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
+use iec61850_kit::proto::goose::{Publisher, PublisherConfig, Retransmission, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
 
 const GOCB: &str = "IED1LD0/LLN0$GO$gcbTrip";
 const APPID: u16 = 0x0005;

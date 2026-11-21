@@ -1,12 +1,12 @@
 [package]
-name = "iec61850-rs"
-version = "0.4.0"
+name = "iec61850-kit"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.90"
 authors = ["hupe1980"]
 license = "MIT OR Apache-2.0"
 description = "IEC 61850 in Rust: GOOSE and Sampled Values on capture files and live interfaces, an MMS client and server over the full OSI stack, and SCL loading and editing. Panic-free, sans-IO, no_std-capable."
-repository = "https://github.com/hupe1980/iec61850-rs"
+repository = "https://github.com/hupe1980/iec61850-kit"
 keywords = ["iec61850", "goose", "sampled-values", "mms", "substation"]
 categories = ["network-programming", "embedded", "no-std"]
 readme = "README.md"
@@ -15,7 +15,7 @@ readme = "README.md"
 exclude = ["fuzz/", "site/", ".github/", "scripts/"]
 
 [lib]
-name = "iec61850_rs"
+name = "iec61850_kit"
 
 [package.metadata.docs.rs]
 # The interesting surface is spread across the features; document all of them, and pass

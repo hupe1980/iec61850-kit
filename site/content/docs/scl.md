@@ -14,7 +14,7 @@ subscribers and clients from it.
 ## Loading
 
 ```rust
-use iec61850_rs::model::IedModel;
+use iec61850_kit::model::IedModel;
 
 let model = IedModel::from_scl_file("relay.icd", Some("IED1"))?;
 // Or from a string, with None for the first/only IED:
@@ -66,7 +66,7 @@ Every diagnostic carries a **stable code** you can match on, and an SCL path say
 Strict loading rejects instead:
 
 ```rust
-use iec61850_rs::scl::LoadOptions;
+use iec61850_kit::scl::LoadOptions;
 
 let model = IedModel::from_scl_with(&xml, Some("IED1"), LoadOptions { strict: true })?;
 // The first thing that would have been a diagnostic is an error instead.
@@ -107,7 +107,7 @@ nominal cycle unless `smpMod` is `SmpPerSec`, so `smpRate="80"` is 4000 samples/
 publisher's part of the file, so subscriptions are resolved over the whole document:
 
 ```rust
-let subs = iec61850_rs::scl::subscriptions(&scd, "IED2", 50)?;
+let subs = iec61850_kit::scl::subscriptions(&scd, "IED2", 50)?;
 
 for s in &subs.goose {
     println!("{} from {} at {} appid={:#06x}", s.identifier, s.publisher, s.dst, s.appid);
@@ -177,7 +177,7 @@ The index is placed on the component the type marks with a `count`:
 ## Object references
 
 ```rust
-use iec61850_rs::{Fc, ObjectReference};
+use iec61850_kit::{Fc, ObjectReference};
 
 let r = ObjectReference::parse("IED1LD0/MMXU1.TotW.mag.f")?;
 assert_eq!((r.ld, r.ln), ("IED1LD0", "MMXU1"));
@@ -266,7 +266,7 @@ The free functions parse the SCL text on every call. `Scl` is the parsed documen
 same operations as methods — use it for a station file with many IEDs:
 
 ```rust
-use iec61850_rs::scl::Scl;
+use iec61850_kit::scl::Scl;
 
 let scl = Scl::parse(&scd)?;          // parsed once
 for name in scl.ied_names() {
@@ -281,8 +281,8 @@ let report = scl.validate(50, Edition::Ed2_1)?;   // builds each model exactly o
 `scl::validate` reports engineering errors the schema does not catch:
 
 ```rust
-use iec61850_rs::common::Edition;
-use iec61850_rs::scl::{self, FindingCode};
+use iec61850_kit::common::Edition;
+use iec61850_kit::scl::{self, FindingCode};
 
 let report = scl::validate(&scd, 50, Edition::Ed2_1)?;
 for f in &report.findings {
@@ -306,7 +306,7 @@ comments, CDATA and character references included — and an edit changes only t
 about, so a review diff shows the change and nothing else.
 
 ```rust
-use iec61850_rs::scl::{Document, Hitem};
+use iec61850_kit::scl::{Document, Hitem};
 
 let mut doc = Document::from_bytes(std::fs::read("bay.scd")?)?;
 doc.rename_ied("Relay1", "Bay1Relay")?;           // and every reference to it

@@ -5,5 +5,5 @@
 # sees the host network or the Docker socket.
 FROM rust:1.90-bookworm
 ENV CARGO_TARGET_DIR=/target
-WORKDIR /src/iec61850-rs
+WORKDIR /src/iec61850-kit
 CMD ["sleep", "infinity"]

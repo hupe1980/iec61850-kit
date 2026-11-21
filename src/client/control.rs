@@ -28,10 +28,10 @@ use crate::proto::mms::control::{AddCause, Check, CommandTermination, ControlMod
 ///
 /// ```no_run
 /// # use std::time::Duration;
-/// # use iec61850_rs::client::Client;
-/// # use iec61850_rs::proto::data::{Dbpos, Value};
-/// # use iec61850_rs::proto::mms::control::{Check, ControlModel, OriginCategory};
-/// # fn main() -> iec61850_rs::Result<()> {
+/// # use iec61850_kit::client::Client;
+/// # use iec61850_kit::proto::data::{Dbpos, Value};
+/// # use iec61850_kit::proto::mms::control::{Check, ControlModel, OriginCategory};
+/// # fn main() -> iec61850_kit::Result<()> {
 /// # let mut c = Client::connect("10.0.0.5")?;
 /// c.control("IED1LD0/CSWI1.Pos")
 ///     .model(ControlModel::SboEnhanced)
@@ -80,7 +80,7 @@ impl Client {
             base,
             object: String::from(reference),
             model: None,
-            origin: Origin::new(OriginCategory::RemoteControl, "iec61850-rs"),
+            origin: Origin::new(OriginCategory::RemoteControl, "iec61850-kit"),
             check: Check::NONE,
             test: false,
             ctl_num: None,

@@ -1,6 +1,6 @@
 +++
 title = "Verification"
-description = "How iec61850-rs is tested: vendor captures re-encoded byte for byte, Wireshark and three other stacks as external oracles, adversarial simulation, fuzzing — and what is not proven."
+description = "How iec61850-kit is tested: vendor captures re-encoded byte for byte, Wireshark and three other stacks as external oracles, adversarial simulation, fuzzing — and what is not proven."
 weight = 70
 +++
 

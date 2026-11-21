@@ -1,7 +1,7 @@
 #![no_main]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 
-use iec61850_rs::scl;
+use iec61850_kit::scl;
 use libfuzzer_sys::fuzz_target;
 
 // Resolving one IED's `Inputs/ExtRef` against the publishers in the same file walks between

@@ -50,7 +50,7 @@ impl Transaction {
 /// ever expanded or fetched.
 ///
 /// ```
-/// use iec61850_rs::scl::Document;
+/// use iec61850_kit::scl::Document;
 ///
 /// let mut doc = Document::parse(r#"<SCL><Header id="x"/>
 ///   <IED name="Relay1"/>
@@ -59,7 +59,7 @@ impl Transaction {
 /// assert!(doc.as_str().contains(r#"<IED name="Bay1Relay"/>"#));
 /// doc.undo();
 /// assert!(doc.as_str().contains(r#"<IED name="Relay1"/>"#));
-/// # Ok::<(), iec61850_rs::Error>(())
+/// # Ok::<(), iec61850_kit::Error>(())
 /// ```
 #[derive(Clone, Debug)]
 pub struct Document {

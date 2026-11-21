@@ -12,10 +12,10 @@
 
 use std::collections::VecDeque;
 
-use iec61850_rs::common::{Instant, TimeQuality, UtcTime};
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
-use iec61850_rs::proto::goose::{Invalid, Publisher, PublisherConfig, Retransmission, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::common::{Instant, TimeQuality, UtcTime};
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
+use iec61850_kit::proto::goose::{Invalid, Publisher, PublisherConfig, Retransmission, Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
 
 /// A tiny reproducible PRNG (xorshift64*), so a failing case can be replayed from its seed.
 struct Rng(u64);

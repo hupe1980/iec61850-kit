@@ -10,7 +10,7 @@
 //!
 //! ```no_run
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use iec61850_rs::server::{Ied, RedbLog, Server};
+//! use iec61850_kit::server::{Ied, RedbLog, Server};
 //!
 //! let ied = Ied::from_scl_file("relay.cid", None)?;
 //! let mut server = Server::bind("0.0.0.0:102", ied)?;

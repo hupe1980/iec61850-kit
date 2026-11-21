@@ -146,9 +146,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # A version already on crates.io is the one this tag names — published by hand (a new
+      # crate's first version, before Trusted Publishing can be configured for it) or by an
+      # earlier run whose later jobs failed. Publishing it again would only fail, and take the
+      # release page and the formula down with it.
+      - name: Is this version already published?
+        id: published
+        run: |
+          name=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
+          status=$(curl -s -o /dev/null -w '%{http_code}' -A "$name release workflow" \
+            "https://crates.io/api/v1/crates/$name/${{ needs.guard.outputs.version }}")
+          if [ "$status" = 200 ]; then
+            echo "::notice::$name ${{ needs.guard.outputs.version }} is already on crates.io; not publishing"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: rust-lang/crates-io-auth-action@v1
+        if: steps.published.outputs.skip != 'true'
         id: auth
       - run: cargo publish --locked
+        if: steps.published.outputs.skip != 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
@@ -241,8 +257,8 @@ jobs:
           scripts/release/formula.sh "$VERSION" dist/SHA256SUMS > tap/Formula/ied.rb
           cd tap
           if [ -n "$(git status --porcelain)" ]; then
-            git config user.name "iec61850-rs release"
-            git config user.email "iec61850-rs-release@users.noreply.github.com"
+            git config user.name "iec61850-kit release"
+            git config user.email "iec61850-kit-release@users.noreply.github.com"
             git add Formula/ied.rb
             git commit -m "ied $VERSION"
             git push

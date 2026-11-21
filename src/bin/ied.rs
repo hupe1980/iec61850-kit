@@ -23,21 +23,21 @@ use std::fmt::Write as _;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use iec61850_rs::client::{Client, ClientConfig, RcbSettings, Unsolicited};
-use iec61850_rs::common::{Edition, EntryTime, Fc, Instant, Limits, TimeQuality, UtcTime};
-use iec61850_rs::model::IedModel;
-use iec61850_rs::pcap::{Capture, Writer};
-use iec61850_rs::proto::data::{Typed, Value as IedValue};
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_GSE_MGMT, ETHERTYPE_SV, Frame, FrameHeader, MacAddr, VlanTag};
-use iec61850_rs::proto::goose::{GoosePduView, Subscriber as GooseSubscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
-use iec61850_rs::proto::mms::control::{AddCause, Check, ControlModel, OriginCategory};
-use iec61850_rs::proto::mms::file;
-use iec61850_rs::proto::mms::report::{OptFlds, ReasonCode, Report, TrgOps};
-use iec61850_rs::proto::mms::typespec::TypeSpec;
-use iec61850_rs::proto::sv::le::PhsMeas1;
-use iec61850_rs::proto::sv::{ChannelValue, Publisher, PublisherConfig, SavPduView, SmpMod, SmpSynch, StreamConfig, StreamKey, SvProfile};
-use iec61850_rs::scl::{self, LoadOptions};
-use iec61850_rs::server::{DirectoryStore, Ied, Server};
+use iec61850_kit::client::{Client, ClientConfig, RcbSettings, Unsolicited};
+use iec61850_kit::common::{Edition, EntryTime, Fc, Instant, Limits, TimeQuality, UtcTime};
+use iec61850_kit::model::IedModel;
+use iec61850_kit::pcap::{Capture, Writer};
+use iec61850_kit::proto::data::{Typed, Value as IedValue};
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_GSE_MGMT, ETHERTYPE_SV, Frame, FrameHeader, MacAddr, VlanTag};
+use iec61850_kit::proto::goose::{GoosePduView, Subscriber as GooseSubscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::proto::mms::control::{AddCause, Check, ControlModel, OriginCategory};
+use iec61850_kit::proto::mms::file;
+use iec61850_kit::proto::mms::report::{OptFlds, ReasonCode, Report, TrgOps};
+use iec61850_kit::proto::mms::typespec::TypeSpec;
+use iec61850_kit::proto::sv::le::PhsMeas1;
+use iec61850_kit::proto::sv::{ChannelValue, Publisher, PublisherConfig, SavPduView, SmpMod, SmpSynch, StreamConfig, StreamKey, SvProfile};
+use iec61850_kit::scl::{self, LoadOptions};
+use iec61850_kit::server::{DirectoryStore, Ied, Server};
 
 const USAGE: &str = "\
 ied — IEC 61850 command line
@@ -342,8 +342,8 @@ fn live_options<'a>(args: &[&'a str]) -> Result<(Option<LiveOptions>, Vec<&'a st
 
 /// Listen on an interface for the configured time and keep what arrived as a capture file,
 /// which the command then judges exactly as it judges one it was given.
-fn capture_live(live: &LiveOptions, options: iec61850_rs::net::LinkOptions) -> Result<String, String> {
-    use iec61850_rs::net::{Link, drop_capabilities};
+fn capture_live(live: &LiveOptions, options: iec61850_kit::net::LinkOptions) -> Result<String, String> {
+    use iec61850_kit::net::{Link, drop_capabilities};
     let options = live.groups.iter().fold(options, |o, g| o.join(*g));
     let mut link = Link::open(&live.iface, &options.promiscuous(live.promiscuous)).map_err(|e| format!("{}: {e}", live.iface))?;
     drop_capabilities().map_err(|e| e.to_string())?;
@@ -381,7 +381,7 @@ fn goose_sniff_cmd(args: &[&str]) -> Result<(), String> {
     let (live, rest) = live_options(args)?;
     match (live, rest.as_slice()) {
         (Some(live), []) => {
-            let path = capture_live(&live, iec61850_rs::net::LinkOptions::goose())?;
+            let path = capture_live(&live, iec61850_kit::net::LinkOptions::goose())?;
             let result = goose_sniff(&path);
             if live.write.is_none() {
                 let _ = std::fs::remove_file(&path);
@@ -396,7 +396,7 @@ fn goose_sniff_cmd(args: &[&str]) -> Result<(), String> {
 fn sv_monitor_cmd(args: &[&str]) -> Result<(), String> {
     let (live, rest) = live_options(args)?;
     if let Some(live) = live {
-        let path = capture_live(&live, iec61850_rs::net::LinkOptions::sv())?;
+        let path = capture_live(&live, iec61850_kit::net::LinkOptions::sv())?;
         let result = sv_monitor(&path, &rest);
         if live.write.is_none() {
             let _ = std::fs::remove_file(&path);
@@ -409,7 +409,7 @@ fn sv_monitor_cmd(args: &[&str]) -> Result<(), String> {
 
 /// `ied goose publish` — one GOOSE control block of an SCD, on a live interface.
 fn goose_publish(args: &[&str]) -> Result<(), String> {
-    use iec61850_rs::net::{Link, LinkOptions, drop_capabilities};
+    use iec61850_kit::net::{Link, LinkOptions, drop_capabilities};
     let (mut iface, mut scd, mut ied, mut gocb, mut values, mut duration) = (None, None, None, None, Vec::new(), Duration::from_secs(10));
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -437,7 +437,7 @@ fn goose_publish(args: &[&str]) -> Result<(), String> {
         .data_set
         .as_deref()
         .and_then(|ds| served.data_set(ds))
-        .map(iec61850_rs::server::ServedDataSet::references)
+        .map(iec61850_kit::server::ServedDataSet::references)
         .ok_or("the control block has no data set")?;
     if !values.is_empty() && values.len() != members.len() {
         return Err(format!("{} --value given, the data set has {} members", values.len(), members.len()));
@@ -455,12 +455,12 @@ fn goose_publish(args: &[&str]) -> Result<(), String> {
     drop_capabilities().map_err(|e| e.to_string())?;
     let cfg = served.model.goose_publisher_config(gocb, link.mac()).map_err(|e| format!("{gocb}: {e}"))?;
     let t = UtcTime::from_unix_nanos(unix_nanos(), TimeQuality::default());
-    let mut publisher = iec61850_rs::proto::goose::Publisher::new(cfg, &data, t).map_err(|e| e.to_string())?;
-    let start = iec61850_rs::common::monotonic_now();
+    let mut publisher = iec61850_kit::proto::goose::Publisher::new(cfg, &data, t).map_err(|e| e.to_string())?;
+    let start = iec61850_kit::common::monotonic_now();
     let end = start.plus_nanos(duration.as_nanos().min(u128::from(u64::MAX)) as u64);
     let mut sent = 0u64;
     loop {
-        let now = iec61850_rs::common::monotonic_now();
+        let now = iec61850_kit::common::monotonic_now();
         if now >= end {
             break;
         }
@@ -470,7 +470,7 @@ fn goose_publish(args: &[&str]) -> Result<(), String> {
             sent += 1;
         }
         let next = publisher.next_timeout().unwrap_or(end).min(end);
-        std::thread::sleep(Duration::from_nanos(next.nanos_since(iec61850_rs::common::monotonic_now())));
+        std::thread::sleep(Duration::from_nanos(next.nanos_since(iec61850_kit::common::monotonic_now())));
     }
     println!("{gocb}: {sent} frames on {iface}, stNum {} sqNum {}", publisher.st_num(), publisher.sq_num());
     Ok(())
@@ -575,10 +575,10 @@ fn goose_sniff(file: &str) -> Result<(), String> {
 /// TPKT over TCP. Printing what a capture holds means decoding all six, which is what makes
 /// this a useful check on the stack as well as a useful tool.
 fn mms_sniff(file: &str) -> Result<(), String> {
-    use iec61850_rs::proto::osi::cotp::Tpdu;
-    use iec61850_rs::proto::osi::presentation::Ppdu;
-    use iec61850_rs::proto::osi::session::Spdu;
-    use iec61850_rs::proto::osi::tpkt;
+    use iec61850_kit::proto::osi::cotp::Tpdu;
+    use iec61850_kit::proto::osi::presentation::Ppdu;
+    use iec61850_kit::proto::osi::session::Spdu;
+    use iec61850_kit::proto::osi::tpkt;
 
     let capture = read(file)?;
     let t0 = capture.frames.first().map_or(0, |(t, _)| *t);
@@ -691,9 +691,9 @@ struct MmsTally {
 
 /// Print one presentation data value: an ACSE APDU in context 1, an MMS PDU anywhere else.
 fn print_pdv(at: f64, arrow: &str, context_id: u16, value: &[u8], tally: &mut MmsTally, printed: &mut u32) {
-    use iec61850_rs::proto::mms::{ConfirmedResponse, Mms, ObjectName, Unconfirmed, VariableAccess};
-    use iec61850_rs::proto::osi::Oid;
-    use iec61850_rs::proto::osi::acse::Apdu;
+    use iec61850_kit::proto::mms::{ConfirmedResponse, Mms, ObjectName, Unconfirmed, VariableAccess};
+    use iec61850_kit::proto::osi::Oid;
+    use iec61850_kit::proto::osi::acse::Apdu;
 
     let mms = if context_id == 1 {
         match Apdu::parse(value) {
@@ -779,8 +779,8 @@ fn print_pdv(at: f64, arrow: &str, context_id: u16, value: &[u8], tally: &mut Mm
 }
 
 /// One line for a confirmed request.
-fn describe_request(service: &iec61850_rs::proto::mms::ConfirmedRequest<'_>) -> String {
-    use iec61850_rs::proto::mms::{ConfirmedRequest, VariableAccess};
+fn describe_request(service: &iec61850_kit::proto::mms::ConfirmedRequest<'_>) -> String {
+    use iec61850_kit::proto::mms::{ConfirmedRequest, VariableAccess};
     match service {
         ConfirmedRequest::Identify => "identify".to_string(),
         ConfirmedRequest::Status { extended_derivation } => format!("status{}", if *extended_derivation { " (extended derivation)" } else { "" }),
@@ -814,8 +814,8 @@ fn describe_request(service: &iec61850_rs::proto::mms::ConfirmedRequest<'_>) -> 
 }
 
 /// One line for a confirmed response.
-fn describe_response(service: &iec61850_rs::proto::mms::ConfirmedResponse<'_>) -> String {
-    use iec61850_rs::proto::mms::ConfirmedResponse;
+fn describe_response(service: &iec61850_kit::proto::mms::ConfirmedResponse<'_>) -> String {
+    use iec61850_kit::proto::mms::ConfirmedResponse;
     match service {
         ConfirmedResponse::Identify { vendor, model, revision } => format!("identify {vendor} {model} {revision}"),
         ConfirmedResponse::Status { logical, physical, .. } => format!("status logical={logical} physical={physical}"),
@@ -870,16 +870,16 @@ fn describe_type(t: &TypeSpec) -> String {
     }
 }
 
-fn object_name(n: &iec61850_rs::proto::mms::ObjectName<'_>) -> String {
-    use iec61850_rs::proto::mms::ObjectName;
+fn object_name(n: &iec61850_kit::proto::mms::ObjectName<'_>) -> String {
+    use iec61850_kit::proto::mms::ObjectName;
     match n {
         ObjectName::DomainSpecific { domain, item } => format!("{domain}/{item}"),
         ObjectName::VmdSpecific(s) | ObjectName::AaSpecific(s) => (*s).to_string(),
     }
 }
 
-fn variable(s: &iec61850_rs::proto::mms::VariableSpecification<'_>, total: usize) -> String {
-    use iec61850_rs::proto::mms::VariableSpecification;
+fn variable(s: &iec61850_kit::proto::mms::VariableSpecification<'_>, total: usize) -> String {
+    use iec61850_kit::proto::mms::VariableSpecification;
     let more = if total > 1 { format!(" (+{} more)", total - 1) } else { String::new() };
     match s {
         VariableSpecification::Name(n) => format!("{}{more}", object_name(n)),
@@ -1120,7 +1120,7 @@ fn simulate(file: &str, args: &[&str]) -> Result<(), String> {
         let devices = ied.domain_names();
         // A file that engineers service tracking is unusual enough to be worth saying so:
         // otherwise the objects are just four more names in a browse.
-        let trackers = iec61850_rs::server::Tracking::new(&ied).references();
+        let trackers = iec61850_kit::server::Tracking::new(&ied).references();
         // Runs out at 65535 rather than wrapping onto a port already in use.
         let port = u16::try_from(n).ok().and_then(|n| o.port.checked_add(n)).ok_or_else(|| format!("{} IEDs do not fit above port {}", names.len(), o.port))?;
         let server = sim_server(&o, file, name, names.len(), port, ied)?;
@@ -1142,7 +1142,7 @@ fn simulate(file: &str, args: &[&str]) -> Result<(), String> {
     if let Some(iface) = &o.iface {
         // Every link is open and no thread has been spawned yet, so the drop covers the whole
         // process; the capability is not needed to keep the links.
-        iec61850_rs::net::drop_capabilities().map_err(|e| e.to_string())?;
+        iec61850_kit::net::drop_capabilities().map_err(|e| e.to_string())?;
         println!("GOOSE and sampled values a client enables go out on {iface}");
     }
     println!("serving; ^C to stop");
@@ -1170,11 +1170,11 @@ fn simulate(file: &str, args: &[&str]) -> Result<(), String> {
 
 /// A frame the publisher could not hand out is a fact an operator needs, not a counter nobody
 /// reads: say so whenever the count grows.
-fn report_dropped_frames(servers: &[iec61850_rs::server::ServerHandle]) {
+fn report_dropped_frames(servers: &[iec61850_kit::server::ServerHandle]) {
     let mut reported = 0u64;
     loop {
         std::thread::sleep(Duration::from_secs(10));
-        let dropped: u64 = servers.iter().map(iec61850_rs::server::ServerHandle::frames_dropped).sum();
+        let dropped: u64 = servers.iter().map(iec61850_kit::server::ServerHandle::frames_dropped).sum();
         if dropped > reported {
             eprintln!("ied: {dropped} GOOSE/SV frame(s) dropped so far: the publisher could not keep up");
             reported = dropped;
@@ -1187,11 +1187,11 @@ fn report_dropped_frames(servers: &[iec61850_rs::server::ServerHandle]) {
 /// caller has dropped the capability.
 fn sim_server(o: &SimOptions, file: &str, name: &str, ieds: usize, port: u16, ied: Ied) -> Result<Server, String> {
     // `--writable` lets clients send files: anyone, or only who presents `--password`.
-    let mut cfg = iec61850_rs::server::ServerConfig::default();
+    let mut cfg = iec61850_kit::server::ServerConfig::default();
     cfg.association.password.clone_from(&o.password);
     if o.writable && o.files.is_some() {
         cfg.acsi.file_write =
-            if o.password.is_some() { iec61850_rs::server::FileWritePolicy::Authenticated } else { iec61850_rs::server::FileWritePolicy::Anyone };
+            if o.password.is_some() { iec61850_kit::server::FileWritePolicy::Authenticated } else { iec61850_kit::server::FileWritePolicy::Anyone };
     }
     let mut server = Server::bind_with(&format!("{}:{port}", o.bind), ied, &cfg).map_err(|e| format!("{name}: {e}"))?;
     if let Some(dir) = &o.files {
@@ -1212,7 +1212,7 @@ fn sim_server(o: &SimOptions, file: &str, name: &str, ieds: usize, port: u16, ie
             std::fs::create_dir_all(path).map_err(|e| format!("{path}: {e}"))?;
             std::path::Path::new(path).join(format!("{name}.redb"))
         };
-        let store = iec61850_rs::server::RedbLog::open(&path, server.log_references(), iec61850_rs::server::DEFAULT_LOG_CAPACITY)
+        let store = iec61850_kit::server::RedbLog::open(&path, server.log_references(), iec61850_kit::server::DEFAULT_LOG_CAPACITY)
             .map_err(|e| format!("{name}: {e}"))?;
         println!("  log in {}", path.display());
         server.set_log_store(Box::new(store));
@@ -1221,7 +1221,7 @@ fn sim_server(o: &SimOptions, file: &str, name: &str, ieds: usize, port: u16, ie
     if let Some(iface) = &o.iface {
         // Registered, not started: the process-bus thread starts with `run`, after the
         // caller has dropped the capability.
-        let link = iec61850_rs::net::Link::open(iface, &iec61850_rs::net::LinkOptions::process_bus()).map_err(|e| format!("{iface}: {e}"))?;
+        let link = iec61850_kit::net::Link::open(iface, &iec61850_kit::net::LinkOptions::process_bus()).map_err(|e| format!("{iface}: {e}"))?;
         server.publish_on(link).map_err(|e| format!("{name}: {e}"))?;
     }
     Ok(server)
@@ -1354,7 +1354,7 @@ fn sv_monitor(file: &str, args: &[&str]) -> Result<(), String> {
 
     // Pass two is the library's own state machine: what the tool reports is exactly what a
     // subscribing IED would see, not a second implementation of the same checks.
-    let mut sub = iec61850_rs::proto::sv::Subscriber::new(configs).with_event_capacity(4096);
+    let mut sub = iec61850_kit::proto::sv::Subscriber::new(configs).with_event_capacity(4096);
     let t0 = capture.frames.first().map_or(0, |(t, _)| *t);
     let mut events: Vec<String> = Vec::new();
     for (ts, frame) in &capture.frames {
@@ -1436,7 +1436,7 @@ fn sv_monitor_from_scl(capture_file: &str, scl_file: &str, ied: Option<&str>, fr
 
     let capture = read(capture_file)?;
     let n = configs.len();
-    let mut sub = iec61850_rs::proto::sv::Subscriber::new(configs).with_event_capacity(4096);
+    let mut sub = iec61850_kit::proto::sv::Subscriber::new(configs).with_event_capacity(4096);
     // The last sample block of each stream, copied out so it can be decoded for printing
     // once the run is over. The buffers are reused, so the capture pass does not grow.
     let mut last: Vec<(u16, Vec<u8>)> = vec![(0, Vec::new()); n];
@@ -1787,7 +1787,7 @@ fn mms_identify(host: &str, args: &[&str]) -> Result<(), String> {
 /// why a supervision loop asks it and why it is the first thing to reach for when a link is
 /// suspect.
 fn mms_status(host: &str, args: &[&str]) -> Result<(), String> {
-    use iec61850_rs::proto::mms::{vmd_logical, vmd_physical};
+    use iec61850_kit::proto::mms::{vmd_logical, vmd_physical};
     let o = mms_options(args)?;
     let mut c = mms_connect(host, &o)?;
     let s = c.status(false).map_err(|e| e.to_string())?;
@@ -2030,7 +2030,7 @@ fn mms_control(host: &str, reference: &str, literal: &str, args: &[&str]) -> Res
             println!("{reference} <- {} (command termination + for {})", show_value(&value), t.control_object());
             Ok(())
         }
-        Err(iec61850_rs::Error::ControlRejected { add_cause }) => {
+        Err(iec61850_kit::Error::ControlRejected { add_cause }) => {
             Err(format!("{reference}: refused — {:?} (AddCause {add_cause})", AddCause::from_code(add_cause)))
         }
         Err(e) => Err(format!("{reference}: {e}")),
@@ -2384,7 +2384,7 @@ fn scl_subs(file: &str, ied: &str, args: &[&str]) -> Result<(), String> {
 /// Where `ied mu` puts its frames.
 enum MuSink {
     File { out: Writer, path: String },
-    Live { link: Box<iec61850_rs::net::Link>, launch: bool, start: Instant, first: u64 },
+    Live { link: Box<iec61850_kit::net::Link>, launch: bool, start: Instant, first: u64 },
 }
 
 impl MuSink {
@@ -2412,7 +2412,7 @@ impl MuSink {
 /// 250 µs frame interval is below what a sleep alone keeps.
 fn wait_until(due: Instant) {
     loop {
-        let now = iec61850_rs::common::monotonic_now();
+        let now = iec61850_kit::common::monotonic_now();
         let left = due.nanos_since(now);
         if left == 0 {
             return;
@@ -2457,8 +2457,8 @@ fn merging_unit(target: MuTarget<'_>, args: &[&str]) -> Result<(), String> {
     let opt = MuOptions::parse(args)?;
     let (link, src) = match target {
         MuTarget::Live(iface, launch) => {
-            let link = iec61850_rs::net::Link::open(iface, &iec61850_rs::net::LinkOptions::sv().launch_time(launch)).map_err(|e| format!("{iface}: {e}"))?;
-            iec61850_rs::net::drop_capabilities().map_err(|e| e.to_string())?;
+            let link = iec61850_kit::net::Link::open(iface, &iec61850_kit::net::LinkOptions::sv().launch_time(launch)).map_err(|e| format!("{iface}: {e}"))?;
+            iec61850_kit::net::drop_capabilities().map_err(|e| e.to_string())?;
             let src = link.mac();
             (Some((link, launch)), src)
         }
@@ -2486,7 +2486,7 @@ fn merging_unit(target: MuTarget<'_>, args: &[&str]) -> Result<(), String> {
     let mut sink = match (target, link) {
         (MuTarget::File(file), _) => MuSink::File { out: Writer::create(file).map_err(|e| format!("{file}: {e}"))?, path: file.to_string() },
         (MuTarget::Live(..), Some((link, launch))) => {
-            MuSink::Live { link: Box::new(link), launch, start: iec61850_rs::common::monotonic_now().plus_millis(5), first: nanos }
+            MuSink::Live { link: Box::new(link), launch, start: iec61850_kit::common::monotonic_now().plus_millis(5), first: nanos }
         }
         (MuTarget::Live(..), None) => return Err(String::from("no link")),
     };
@@ -2506,9 +2506,9 @@ fn merging_unit(target: MuTarget<'_>, args: &[&str]) -> Result<(), String> {
                 let (a, b, c) = (phase(0.0), phase(-2.0944), phase(2.0944));
                 PhsMeas1 {
                     currents: [a / 10, b / 10, c / 10, 0],
-                    current_quality: [iec61850_rs::Quality::GOOD; 4],
+                    current_quality: [iec61850_kit::Quality::GOOD; 4],
                     voltages: [a, b, c, 0],
-                    voltage_quality: [iec61850_rs::Quality::GOOD; 4],
+                    voltage_quality: [iec61850_kit::Quality::GOOD; 4],
                 }
                 .encode()
             })
@@ -2530,7 +2530,7 @@ fn merging_unit(target: MuTarget<'_>, args: &[&str]) -> Result<(), String> {
             format!("wrote {} frames to {path}", opt.frames)
         }
         MuSink::Live { mut link, launch, .. } => {
-            let late = if launch { link.launch_errors().map_err(|e| e.to_string())? } else { iec61850_rs::net::LaunchErrors::default() };
+            let late = if launch { link.launch_errors().map_err(|e| e.to_string())? } else { iec61850_kit::net::LaunchErrors::default() };
             let note = match (late.missed, late.invalid) {
                 (0, 0) => String::new(),
                 (m, 0) => format!(" ({m} missed their launch time)"),

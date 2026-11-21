@@ -23,14 +23,14 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
-use iec61850_rs::common::{Instant, Quality, TimeQuality, UtcTime};
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, FrameHeader, MacAddr, VlanTag};
-use iec61850_rs::proto::goose::{
+use iec61850_kit::common::{Instant, Quality, TimeQuality, UtcTime};
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, FrameHeader, MacAddr, VlanTag};
+use iec61850_kit::proto::goose::{
     Publisher as GoosePublisher, PublisherConfig as GooseConfig, Retransmission, Subscriber as GooseSubscriber, SubscriberConfig, SubscriptionKey,
 };
-use iec61850_rs::proto::sv::le::PhsMeas1;
-use iec61850_rs::proto::sv::{
+use iec61850_kit::proto::sv::le::PhsMeas1;
+use iec61850_kit::proto::sv::{
     ChannelType, Publisher as SvPublisher, PublisherConfig as SvConfig, SampleLayout, SmpSynch, StreamConfig, StreamKey, Subscriber as SvSubscriber, SvProfile,
 };
 
@@ -287,10 +287,10 @@ fn the_steady_state_allocates_nothing() {
 #[test]
 #[cfg(all(feature = "server", feature = "std"))]
 fn opening_a_large_file_does_not_allocate_it() {
-    use iec61850_rs::common::Instant;
-    use iec61850_rs::proto::mms::ConfirmedRequest;
-    use iec61850_rs::proto::mms::file::FileNameBuf;
-    use iec61850_rs::server::{Acsi, Answer, DirectoryStore, Ied};
+    use iec61850_kit::common::Instant;
+    use iec61850_kit::proto::mms::ConfirmedRequest;
+    use iec61850_kit::proto::mms::file::FileNameBuf;
+    use iec61850_kit::server::{Acsi, Answer, DirectoryStore, Ied};
 
     const RECORD: usize = 4 << 20; // 4 MiB — far above any buffer here.
 
@@ -367,10 +367,10 @@ const MODEL: &str = r#"<?xml version="1.0"?>
 #[test]
 #[cfg(all(feature = "server", feature = "std"))]
 fn receiving_a_file_costs_a_chunk_not_the_file() {
-    use iec61850_rs::common::Instant;
-    use iec61850_rs::proto::mms::file::{FileAttributes, FileNameBuf};
-    use iec61850_rs::proto::mms::{ConfirmedRequest, ConfirmedResponse, Mms};
-    use iec61850_rs::server::{Acsi, AcsiConfig, Answer, DirectoryStore, FileWritePolicy, Ied};
+    use iec61850_kit::common::Instant;
+    use iec61850_kit::proto::mms::file::{FileAttributes, FileNameBuf};
+    use iec61850_kit::proto::mms::{ConfirmedRequest, ConfirmedResponse, Mms};
+    use iec61850_kit::server::{Acsi, AcsiConfig, Answer, DirectoryStore, FileWritePolicy, Ied};
 
     const CHUNK: usize = 4096;
     const CHUNKS: u32 = 64;
@@ -395,7 +395,7 @@ fn receiving_a_file_costs_a_chunk_not_the_file() {
     let answer_once = |acsi: &mut Acsi, invoke: i64, pdu: &[u8]| {
         assert!(acsi.obtain_call(1).is_some(), "a call is due");
         acsi.obtain_issued(1, invoke);
-        let mms = Mms::parse(pdu, &iec61850_rs::common::Limits::DEFAULT).unwrap();
+        let mms = Mms::parse(pdu, &iec61850_kit::common::Limits::DEFAULT).unwrap();
         acsi.obtain_response(1, invoke, &mms)
     };
     let mut invoke = 10;
@@ -404,7 +404,7 @@ fn receiving_a_file_costs_a_chunk_not_the_file() {
     for n in 0..CHUNKS {
         let read =
             Mms::ConfirmedResponse { invoke_id: 0, service: ConfirmedResponse::FileRead { data: &data, more_follows: n + 1 < CHUNKS } }.to_vec().unwrap();
-        let mms = Mms::parse(&read, &iec61850_rs::common::Limits::DEFAULT).unwrap();
+        let mms = Mms::parse(&read, &iec61850_kit::common::Limits::DEFAULT).unwrap();
         assert!(acsi.obtain_call(1).is_some());
         invoke += 1;
         acsi.obtain_issued(1, invoke);
@@ -416,7 +416,7 @@ fn receiving_a_file_costs_a_chunk_not_the_file() {
     assert!(worst < (CHUNK as u64) * 4, "a chunk received costs {worst} octets, more than a few chunks of {CHUNK}");
     let close = Mms::ConfirmedResponse { invoke_id: 0, service: ConfirmedResponse::FileClose }.to_vec().unwrap();
     let done = answer_once(&mut acsi, invoke + 1, &close).expect("the ObtainFile is answered");
-    assert!(matches!(Mms::parse(&done, &iec61850_rs::common::Limits::DEFAULT), Ok(Mms::ConfirmedResponse { service: ConfirmedResponse::ObtainFile, .. })));
+    assert!(matches!(Mms::parse(&done, &iec61850_kit::common::Limits::DEFAULT), Ok(Mms::ConfirmedResponse { service: ConfirmedResponse::ObtainFile, .. })));
     assert_eq!(std::fs::metadata(dir.join("big.bin")).unwrap().len(), u64::from(size));
     let _ = std::fs::remove_dir_all(&dir);
 }

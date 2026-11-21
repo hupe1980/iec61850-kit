@@ -13,7 +13,7 @@
 
 use std::path::{Path, PathBuf};
 
-use iec61850_rs::common::Limits;
+use iec61850_kit::common::Limits;
 
 /// Files under `fuzz/regressions/<target>`, or an empty list when the directory is absent.
 fn corpus(target: &str) -> Vec<PathBuf> {
@@ -41,9 +41,9 @@ fn every_mms_stack_regression_still_decodes_without_panicking() {
 #[cfg(all(feature = "server", feature = "scl"))]
 #[test]
 fn every_mms_server_regression_still_answers_without_panicking() {
-    use iec61850_rs::common::Instant;
-    use iec61850_rs::proto::mms::Mms;
-    use iec61850_rs::server::{Acsi, Ied};
+    use iec61850_kit::common::Instant;
+    use iec61850_kit::proto::mms::Mms;
+    use iec61850_kit::server::{Acsi, Ied};
 
     let files = corpus("mms_server");
     if files.is_empty() {
@@ -88,8 +88,8 @@ const FUZZ_MODEL: &str = r#"<?xml version="1.0"?>
 fn every_goose_regression_still_decodes_without_panicking() {
     for file in corpus("goose_frame") {
         let data = std::fs::read(&file).unwrap();
-        if let Ok(frame) = iec61850_rs::proto::ethernet::Frame::parse(&data)
-            && let Ok(pdu) = iec61850_rs::proto::goose::GoosePduView::parse(frame.apdu)
+        if let Ok(frame) = iec61850_kit::proto::ethernet::Frame::parse(&data)
+            && let Ok(pdu) = iec61850_kit::proto::goose::GoosePduView::parse(frame.apdu)
         {
             let _ = pdu.all_data_owned(&Limits::DEFAULT);
             let _ = pdu.member_count_matches();
@@ -99,14 +99,14 @@ fn every_goose_regression_still_decodes_without_panicking() {
 
 /// The body of `fuzz/fuzz_targets/mms_stack.rs`, minus the libfuzzer harness.
 fn mms_stack(data: &[u8]) {
-    use iec61850_rs::proto::mms::control::{ControlRequest, LastApplError};
-    use iec61850_rs::proto::mms::report::Report;
-    use iec61850_rs::proto::mms::{Mms, Unconfirmed};
-    use iec61850_rs::proto::osi::acse::Apdu;
-    use iec61850_rs::proto::osi::cotp::{Reassembler, Tpdu};
-    use iec61850_rs::proto::osi::presentation::Ppdu;
-    use iec61850_rs::proto::osi::session::Spdu;
-    use iec61850_rs::proto::osi::tpkt;
+    use iec61850_kit::proto::mms::control::{ControlRequest, LastApplError};
+    use iec61850_kit::proto::mms::report::Report;
+    use iec61850_kit::proto::mms::{Mms, Unconfirmed};
+    use iec61850_kit::proto::osi::acse::Apdu;
+    use iec61850_kit::proto::osi::cotp::{Reassembler, Tpdu};
+    use iec61850_kit::proto::osi::presentation::Ppdu;
+    use iec61850_kit::proto::osi::session::Spdu;
+    use iec61850_kit::proto::osi::tpkt;
 
     fn decode_session(bytes: &[u8]) {
         let Ok(spdu) = Spdu::parse(bytes) else { return };
@@ -162,7 +162,7 @@ fn mms_stack(data: &[u8]) {
             assert_eq!(Report::from_values(&values).unwrap(), report, "the report codec must be a fixed point");
         }
     }
-    if let Ok(values) = iec61850_rs::proto::data::decode_all(data, &Limits::DEFAULT)
+    if let Ok(values) = iec61850_kit::proto::data::decode_all(data, &Limits::DEFAULT)
         && let Some(v) = values.first()
     {
         if let Ok(r) = ControlRequest::from_value(v) {

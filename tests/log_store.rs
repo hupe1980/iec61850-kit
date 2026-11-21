@@ -8,10 +8,10 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
-use iec61850_rs::client::Client;
-use iec61850_rs::common::{EntryTime, Fc, ReasonCode};
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::server::{Ied, LogError, LogStore, MemoryLog, NewEntry, RedbLog, Server, SyncPolicy, check_log_store, decode_record};
+use iec61850_kit::client::Client;
+use iec61850_kit::common::{EntryTime, Fc, ReasonCode};
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::server::{Ied, LogError, LogStore, MemoryLog, NewEntry, RedbLog, Server, SyncPolicy, check_log_store, decode_record};
 use proptest::prelude::*;
 
 const RELAY: &str = include_str!("fixtures/relay.icd");

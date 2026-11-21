@@ -1,10 +1,10 @@
 #![no_main]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 
-use iec61850_rs::common::{Instant, Limits};
-use iec61850_rs::proto::mms::Mms;
-use iec61850_rs::proto::mms::file::FileNameBuf;
-use iec61850_rs::server::{FileError, FileWriter, Obtains};
+use iec61850_kit::common::{Instant, Limits};
+use iec61850_kit::proto::mms::Mms;
+use iec61850_kit::proto::mms::file::FileNameBuf;
+use iec61850_kit::server::{FileError, FileWriter, Obtains};
 use libfuzzer_sys::fuzz_target;
 
 /// A writer that keeps nothing but a bounded count, as a store with a limit would.
