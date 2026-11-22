@@ -14,13 +14,13 @@
 //! | [`Server`] | the accept loop and one thread per association, over the same [`Association`](crate::proto::mms::association::Association) the client drives in the other role |
 //!
 //! ```no_run
-//! use iec61850_rs::server::{Ied, Server};
+//! use iec61850_kit::server::{Ied, Server};
 //!
-//! # fn main() -> iec61850_rs::Result<()> {
+//! # fn main() -> iec61850_kit::Result<()> {
 //! let server = Server::bind("0.0.0.0:102", Ied::from_scl(&std::fs::read_to_string("relay.cid")?, None)?)?;
 //! let updates = server.handle();
 //! std::thread::spawn(move || {
-//!     updates.txn().set("IED1LD0/PTRC1$ST$Tr$general", iec61850_rs::proto::data::Value::Boolean(true)).commit();
+//!     updates.txn().set("IED1LD0/PTRC1$ST$Tr$general", iec61850_kit::proto::data::Value::Boolean(true)).commit();
 //! });
 //! server.run()
 //! # }

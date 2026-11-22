@@ -13,15 +13,15 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::time::Duration;
 
-use iec61850_rs::Fc;
-use iec61850_rs::ber::Cursor;
-use iec61850_rs::client::{Check, Client, ControlModel, OriginCategory, RcbSettings, TrgOps};
-use iec61850_rs::common::{EntryTime, Instant, Limits, Quality};
-use iec61850_rs::proto::data::{Dbpos, Typed, Value};
-use iec61850_rs::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
-use iec61850_rs::proto::mms::control::ControlRequest;
-use iec61850_rs::proto::mms::report::{OptFlds, ReasonCode, Report, ReportEntry};
-use iec61850_rs::proto::mms::{
+use iec61850_kit::Fc;
+use iec61850_kit::ber::Cursor;
+use iec61850_kit::client::{Check, Client, ControlModel, OriginCategory, RcbSettings, TrgOps};
+use iec61850_kit::common::{EntryTime, Instant, Limits, Quality};
+use iec61850_kit::proto::data::{Dbpos, Typed, Value};
+use iec61850_kit::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
+use iec61850_kit::proto::mms::control::ControlRequest;
+use iec61850_kit::proto::mms::report::{OptFlds, ReasonCode, Report, ReportEntry};
+use iec61850_kit::proto::mms::{
     AccessResult, ConfirmedRequest, ConfirmedResponse, Mms, ObjectName, ObjectScope, Unconfirmed, VariableAccess, VariableSpecification, WriteResult,
     object_class,
 };
@@ -99,8 +99,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Ok(Some(t)) => println!("command terminated + for {}", t.control_object()),
         Ok(None) => println!("accepted"),
         // A refused command is a refusal, not a successful write.
-        Err(iec61850_rs::Error::ControlRejected { add_cause }) => {
-            println!("refused: {:?}", iec61850_rs::client::AddCause::from_code(add_cause));
+        Err(iec61850_kit::Error::ControlRejected { add_cause }) => {
+            println!("refused: {:?}", iec61850_kit::client::AddCause::from_code(add_cause));
         }
         Err(e) => return Err(e.into()),
     }
@@ -189,7 +189,7 @@ fn serve(mut stream: TcpStream) {
 fn answer(s: &mut Server, invoke_id: i64, pdu: &[u8]) {
     let Ok(Mms::ConfirmedRequest { service, .. }) = Mms::parse(pdu, &Limits::DEFAULT) else { return };
     let _ = match service {
-        ConfirmedRequest::Identify => s.assoc.respond(invoke_id, &ConfirmedResponse::Identify { vendor: "hupe1980", model: "iec61850-rs", revision: "0.1.0" }),
+        ConfirmedRequest::Identify => s.assoc.respond(invoke_id, &ConfirmedResponse::Identify { vendor: "hupe1980", model: "iec61850-kit", revision: "0.1.0" }),
         ConfirmedRequest::GetNameList { object_class: class, scope, .. } => {
             let names: &[&str] = match (class, scope) {
                 (object_class::DOMAIN, ObjectScope::VmdSpecific) => &[LD],
@@ -254,12 +254,12 @@ fn read(s: &mut Server, invoke_id: i64, access: &VariableAccess<'_>) {
     let _ = s.assoc.respond(invoke_id, &ConfirmedResponse::Read { access: None, results });
 }
 
-fn write(s: &mut Server, invoke_id: i64, access: &VariableAccess<'_>, values: &[iec61850_rs::ber::Tlv<'_>]) {
+fn write(s: &mut Server, invoke_id: i64, access: &VariableAccess<'_>, values: &[iec61850_kit::ber::Tlv<'_>]) {
     let mut outcomes = Vec::new();
     let mut gi = false;
     let mut operated: Option<ControlRequest> = None;
     for (name, tlv) in names_of(access).iter().zip(values) {
-        let Ok(value) = iec61850_rs::proto::data::DataView::from_tlv(*tlv).and_then(|d| d.to_owned(&Limits::DEFAULT)) else {
+        let Ok(value) = iec61850_kit::proto::data::DataView::from_tlv(*tlv).and_then(|d| d.to_owned(&Limits::DEFAULT)) else {
             outcomes.push(WriteResult::Failure(11));
             continue;
         };

@@ -10,10 +10,10 @@ use std::fs::{self, OpenOptions};
 use std::io::Write as _;
 use std::path::Path;
 
-use iec61850_rs::common::Edition;
-use iec61850_rs::model::{GseAddress, SmvAddress};
-use iec61850_rs::proto::ethernet::MacAddr;
-use iec61850_rs::scl::{self, Document, Hitem};
+use iec61850_kit::common::Edition;
+use iec61850_kit::model::{GseAddress, SmvAddress};
+use iec61850_kit::proto::ethernet::MacAddr;
+use iec61850_kit::scl::{self, Document, Hitem};
 
 /// Above this an input is refused before it is read; `--max-size` changes it.
 const DEFAULT_MAX_SIZE: u64 = 1 << 30;
@@ -115,7 +115,7 @@ pub fn run(file: &str, args: &[&str]) -> Result<(), String> {
 
 fn apply(doc: &mut Document, op: &str, p: &[&str], o: &Options<'_>) -> Result<String, String> {
     let arity = |n: usize| if p.len() == n { Ok(()) } else { Err(format!("`scl edit {op}` takes {n} argument(s), got {}", p.len())) };
-    let e = |e: iec61850_rs::Error| e.to_string();
+    let e = |e: iec61850_kit::Error| e.to_string();
     match (op, p) {
         ("rename-ied", [old, new]) => doc.rename_ied(old, new).map(|_| format!("rename IED {old} → {new}")).map_err(e),
         ("remove-ied", [name]) => doc.remove_ied(name).map(|_| format!("remove IED {name}")).map_err(e),

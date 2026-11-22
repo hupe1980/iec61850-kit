@@ -13,13 +13,13 @@
 
 mod common;
 
-use iec61850_rs::common::Limits;
-use iec61850_rs::proto::mms::{ConfirmedRequest, ConfirmedResponse, Mms, ObjectName, Unconfirmed, VariableAccess};
-use iec61850_rs::proto::osi::acse::Apdu;
-use iec61850_rs::proto::osi::cotp::Tpdu;
-use iec61850_rs::proto::osi::presentation::Ppdu;
-use iec61850_rs::proto::osi::session::Spdu;
-use iec61850_rs::proto::osi::{Oid, tpkt};
+use iec61850_kit::common::Limits;
+use iec61850_kit::proto::mms::{ConfirmedRequest, ConfirmedResponse, Mms, ObjectName, Unconfirmed, VariableAccess};
+use iec61850_kit::proto::osi::acse::Apdu;
+use iec61850_kit::proto::osi::cotp::Tpdu;
+use iec61850_kit::proto::osi::presentation::Ppdu;
+use iec61850_kit::proto::osi::session::Spdu;
+use iec61850_kit::proto::osi::{Oid, tpkt};
 
 /// The TCP payloads of the capture, in file order, split by direction.
 ///
@@ -189,7 +189,7 @@ fn check_mms(bytes: &[u8], counters: &mut Counters) {
             counters.responses += 1;
             if let ConfirmedResponse::Read { results, .. } = service {
                 counters.access_results += results.len();
-                assert!(results.iter().all(|r| r.value().is_some() || matches!(r, iec61850_rs::proto::mms::AccessResult::Failure(_))));
+                assert!(results.iter().all(|r| r.value().is_some() || matches!(r, iec61850_kit::proto::mms::AccessResult::Failure(_))));
             }
         }
         Mms::Unconfirmed(Unconfirmed::InformationReport { access, results }) => {
@@ -293,8 +293,8 @@ fn every_packet_of_the_reference_capture_decodes_and_re_encodes_byte_for_byte() 
 /// What each end *sends* is discarded — the capture is the peer, not a mirror.
 #[test]
 fn the_association_state_machine_follows_the_reference_capture() {
-    use iec61850_rs::common::Instant;
-    use iec61850_rs::proto::mms::association::{Association, AssociationConfig, AssociationEvent, CloseReason};
+    use iec61850_kit::common::Instant;
+    use iec61850_kit::proto::mms::association::{Association, AssociationConfig, AssociationEvent, CloseReason};
 
     let Some(path) = common::reference("pcap/mms.pcap") else { return };
     let payloads = tcp_payloads(&path);
@@ -371,8 +371,8 @@ fn the_association_state_machine_follows_the_reference_capture() {
 /// every field after it — so what this pins is that it does not.
 #[test]
 fn the_capture_s_reports_are_not_mistaken_for_iec_61850_reports() {
-    use iec61850_rs::client::Unsolicited;
-    use iec61850_rs::common::Limits;
+    use iec61850_kit::client::Unsolicited;
+    use iec61850_kit::common::Limits;
 
     let Some(path) = common::reference("pcap/mms.pcap") else { return };
     let payloads = tcp_payloads(&path);
@@ -399,7 +399,7 @@ fn the_capture_s_reports_are_not_mistaken_for_iec_61850_reports() {
                     Unsolicited::CommandTermination(_) => panic!("this capture carries no controls"),
                     Unsolicited::Other { name, values, .. } => {
                         assert!(name.starts_with("KIRKLAND/") || name.starts_with("BELLEVUE/"), "unexpected report name {name}");
-                        assert_ne!(values, [] as [iec61850_rs::proto::data::Value; 0]);
+                        assert_ne!(values, [] as [iec61850_kit::proto::data::Value; 0]);
                     }
                 }
             }

@@ -7,9 +7,9 @@
 //! would be written against, so a runtime here would buy nothing and cost every caller.
 //!
 //! ```no_run
-//! use iec61850_rs::server::{Ied, Server};
+//! use iec61850_kit::server::{Ied, Server};
 //!
-//! # fn main() -> iec61850_rs::Result<()> {
+//! # fn main() -> iec61850_kit::Result<()> {
 //! let ied = Ied::from_scl(&std::fs::read_to_string("relay.cid")?, None)?;
 //! let server = Server::bind("0.0.0.0:102", ied)?;
 //!
@@ -17,7 +17,7 @@
 //! // change visible to every client at once.
 //! let updates = server.handle();
 //! std::thread::spawn(move || {
-//!     use iec61850_rs::proto::data::Value;
+//!     use iec61850_kit::proto::data::Value;
 //!     updates.txn().set("IED1LD0/PTRC1$ST$Tr$general", Value::Boolean(true)).commit();
 //! });
 //!
@@ -470,8 +470,8 @@ impl Txn<'_> {
     /// # // Gated: `supervise` is a `server` feature and the subscriber it takes is a `goose` one.
     /// # #[cfg(feature = "goose")]
     /// # mod example {
-    /// # use iec61850_rs::server::{ServerHandle, SubscriptionStatus};
-    /// # pub fn run(updates: &ServerHandle, sub: &iec61850_rs::proto::goose::Subscriber) {
+    /// # use iec61850_kit::server::{ServerHandle, SubscriptionStatus};
+    /// # pub fn run(updates: &ServerHandle, sub: &iec61850_kit::proto::goose::Subscriber) {
     /// updates.txn().supervise("IED1LD0/LGOS1", &SubscriptionStatus::from_goose(sub)).commit();
     /// # }
     /// # }

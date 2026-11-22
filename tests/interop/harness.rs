@@ -228,7 +228,7 @@ pub fn ied_container(net: &Network, files: &[(&str, &str)]) -> Container<Generic
     static BUILD: Mutex<()> = Mutex::new(());
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).canonicalize().expect("repository");
     let mut request = image("ied")
-        .with_mount(Mount::bind_mount(repo.to_string_lossy(), "/src/iec61850-rs").with_access_mode(AccessMode::ReadOnly))
+        .with_mount(Mount::bind_mount(repo.to_string_lossy(), "/src/iec61850-kit").with_access_mode(AccessMode::ReadOnly))
         .with_mount(Mount::volume_mount("iec61850-interop-cargo", "/usr/local/cargo/registry"))
         .with_mount(Mount::volume_mount("iec61850-interop-target", "/target"));
     for (path, text) in files {
@@ -237,7 +237,7 @@ pub fn ied_container(net: &Network, files: &[(&str, &str)]) -> Container<Generic
     let c = on_network(request, net, "ied");
     let _one = BUILD.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let started = Instant::now();
-    let (out, _, code) = exec(&c, &["bash", "-c", "set -o pipefail; cd /src/iec61850-rs && cargo build --locked --features cli --bin ied 2>&1 | tail -20"]);
+    let (out, _, code) = exec(&c, &["bash", "-c", "set -o pipefail; cd /src/iec61850-kit && cargo build --locked --features cli --bin ied 2>&1 | tail -20"]);
     assert_eq!(code, 0, "building ied for Linux failed:\n{out}");
     eprintln!("ied built for Linux in {:.1}s", started.elapsed().as_secs_f32());
     c

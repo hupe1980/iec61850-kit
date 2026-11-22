@@ -14,9 +14,9 @@ A publisher owns its retransmission schedule. You tell it when the data changed;
 when to send.
 
 ```rust
-use iec61850_rs::common::UtcTime;
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::proto::goose::{Publisher, PublisherConfig, Retransmission};
+use iec61850_kit::common::UtcTime;
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::proto::goose::{Publisher, PublisherConfig, Retransmission};
 
 let mut pubr = Publisher::new(
     PublisherConfig {
@@ -78,7 +78,7 @@ holds. A frame not collected before the next is built is dropped and counted by
 ## Subscribing
 
 ```rust
-use iec61850_rs::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+use iec61850_kit::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
 
 let mut sub = Subscriber::new(
     SubscriberConfig::new(SubscriptionKey {
@@ -110,7 +110,7 @@ while let Some(event) = sub.poll_event() {
 IEC 61850-7-3 type it claims to be:
 
 ```rust
-use iec61850_rs::proto::data::{Dbpos, Typed};
+use iec61850_kit::proto::data::{Dbpos, Typed};
 
 let pos = &values[0];
 match pos.member(0).and_then(Typed::as_dbpos) {
@@ -177,7 +177,7 @@ Two limits of the rule:
 ### Simulation
 
 ```rust
-use iec61850_rs::proto::goose::SimulationMode;
+use iec61850_kit::proto::goose::SimulationMode;
 
 // LPHD.Sim = true: prefer a test set's frames over the real publisher's.
 let cfg = SubscriberConfig::new(key).with_simulation(SimulationMode::Preferred);
@@ -237,7 +237,7 @@ IEC 61850-7-4 gives every GOOSE subscription an `LGOS` logical node, so a SCADA 
 what this subscriber thinks of its stream, and a report control block can carry it:
 
 ```rust
-use iec61850_rs::server::SubscriptionStatus;
+use iec61850_kit::server::SubscriptionStatus;
 
 updates.txn().supervise("IED2LD0/LGOS1", &SubscriptionStatus::from_goose(&subscriber)).commit();
 ```
@@ -262,7 +262,7 @@ See [SCL and the IED model](@/docs/scl.md).
 And for the other side of the wire, from a whole SCD:
 
 ```rust
-let subs = iec61850_rs::scl::subscriptions(&scd, "IED2", 50)?;
+let subs = iec61850_kit::scl::subscriptions(&scd, "IED2", 50)?;
 for s in &subs.goose {
     subscribers.push(Subscriber::new(s.goose_config()));   // address, APPID and confRev resolved
 }

@@ -29,7 +29,7 @@ ACSE AARQ carrying an MMS `Initiate`. Each layer is a codec with no socket and n
 pieces are stateful.
 
 ```rust
-use iec61850_rs::proto::osi::tpkt;
+use iec61850_kit::proto::osi::tpkt;
 
 // A TPKT header can arrive split across TCP segments, so framing is a state machine.
 let mut reader = tpkt::Reader::new();
@@ -45,11 +45,11 @@ end-of-transmission bit, and every layer above sees only the TSDU. It takes a si
 ## Decoding a message
 
 ```rust
-use iec61850_rs::common::Limits;
-use iec61850_rs::proto::mms::{ConfirmedResponse, Mms};
-use iec61850_rs::proto::osi::cotp::Tpdu;
-use iec61850_rs::proto::osi::presentation::Ppdu;
-use iec61850_rs::proto::osi::session::Spdu;
+use iec61850_kit::common::Limits;
+use iec61850_kit::proto::mms::{ConfirmedResponse, Mms};
+use iec61850_kit::proto::osi::cotp::Tpdu;
+use iec61850_kit::proto::osi::presentation::Ppdu;
+use iec61850_kit::proto::osi::session::Spdu;
 
 let Tpdu::Data { payload, .. } = Tpdu::parse(tpdu)? else { return Ok(()) };
 let Spdu::DataTransfer(ppdu) = Spdu::parse(payload)? else { return Ok(()) };
@@ -125,9 +125,9 @@ $ ied mms sniff station.pcap
 `Role`, client or server.
 
 ```rust
-use iec61850_rs::common::Instant;
-use iec61850_rs::proto::mms::ConfirmedRequest;
-use iec61850_rs::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
+use iec61850_kit::common::Instant;
+use iec61850_kit::proto::mms::ConfirmedRequest;
+use iec61850_kit::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
 
 let mut a = Association::client(AssociationConfig::default());
 a.start(now)?;                                     // queues the COTP connection request
@@ -161,7 +161,7 @@ What it handles:
 `client::Client` is that state machine plus a blocking TCP socket. It needs no async runtime.
 
 ```rust
-use iec61850_rs::{Fc, client::Client};
+use iec61850_kit::{Fc, client::Client};
 
 let mut c = Client::connect("10.0.0.5:102")?;      // all six layers, one call
 println!("{:?}", c.status(false)?);                 // is it healthy? no model needed
@@ -236,7 +236,7 @@ bit string has one bit per data-set member (as `data_set_members` returns them);
 naming a data object (`CSWI1$ST$Pos`) is one bit and one structured value.
 
 ```rust
-use iec61850_rs::client::{RcbSettings, TrgOps};
+use iec61850_kit::client::{RcbSettings, TrgOps};
 
 // The settings go out in one Write and `RptEna` in a second.
 c.enable_rcb("IED1LD0/LLN0$RP$urcb01", Fc::RP,
@@ -268,7 +268,7 @@ them. A skipped or repeated `SubSeqNum` abandons the run, and the assembler is b
 ### When the link drops
 
 ```rust
-use iec61850_rs::client::Backoff;
+use iec61850_kit::client::Backoff;
 
 if !c.is_alive() {                          // one `Status` round trip, all six layers
     c.reconnect(&Backoff::default())?;      // 500 ms doubling to 30 s, for ever
@@ -294,7 +294,7 @@ let cval    = c.read("IED1LD0/MHAI1.HA.phsAHar(2).cVal",      Fc::MX)?; // one c
 The length is in `GetVariableAccessAttributes`:
 
 ```rust
-use iec61850_rs::proto::mms::typespec::TypeSpec;
+use iec61850_kit::proto::mms::typespec::TypeSpec;
 
 let spec = c.variable_type("IED1LD0/MHAI1$MX$HA", Fc::MX)?;
 if let Some(TypeSpec::Array { elements, .. }) = spec.component("phsAHar") {
@@ -320,8 +320,8 @@ Every control service is a `Read` or `Write` on a structured variable under `CO`
 | SBO, enhanced security | write `SBOw`, write `Oper`, then wait for a `CommandTermination` |
 
 ```rust
-use iec61850_rs::client::{Check, ControlModel, OriginCategory};
-use iec61850_rs::proto::data::Dbpos;
+use iec61850_kit::client::{Check, ControlModel, OriginCategory};
+use iec61850_kit::proto::data::Dbpos;
 
 c.control("IED1LD0/CSWI1.Pos")
     .origin(OriginCategory::StationControl, "hmi-1")
@@ -432,7 +432,7 @@ argument: `Error::Rejected { invoke_id, reason_tag, code }`. `RejectReason::from
 code)` names the pair.
 
 ```rust
-use iec61850_rs::proto::mms::reject::RejectReason;
+use iec61850_kit::proto::mms::reject::RejectReason;
 
 match c.read("IED1LD0/MMXU1.TotW.mag.f", Fc::MX) {
     Err(Error::Rejected { reason_tag, code, .. }) => {

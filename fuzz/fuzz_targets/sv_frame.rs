@@ -1,10 +1,10 @@
 #![no_main]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 
-use iec61850_rs::common::{Instant, Limits};
-use iec61850_rs::proto::ethernet::{Frame, MacAddr};
-use iec61850_rs::proto::sv::le::PhsMeas1;
-use iec61850_rs::proto::sv::{ChannelType, SampleLayout, SavPduView, StreamConfig, StreamKey, Subscriber};
+use iec61850_kit::common::{Instant, Limits};
+use iec61850_kit::proto::ethernet::{Frame, MacAddr};
+use iec61850_kit::proto::sv::le::PhsMeas1;
+use iec61850_kit::proto::sv::{ChannelType, SampleLayout, SavPduView, StreamConfig, StreamKey, Subscriber};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -35,7 +35,7 @@ fuzz_target!(|data: &[u8]| {
     // And the write half, against the same description.
     let mut block = vec![0u8; layout.len()];
     for (i, v) in data.chunks(8).enumerate() {
-        let value = iec61850_rs::proto::sv::ChannelValue::Int(v.iter().fold(0i64, |a, b| a.wrapping_shl(8) | i64::from(*b)));
+        let value = iec61850_kit::proto::sv::ChannelValue::Int(v.iter().fold(0i64, |a, b| a.wrapping_shl(8) | i64::from(*b)));
         let _ = layout.write(&mut block, i, value);
     }
     sub.on_timeout(Instant::ZERO.plus_millis(1_000));

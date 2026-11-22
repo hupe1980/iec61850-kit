@@ -1,5 +1,5 @@
 # csp0924's IEC 61850 crates as an interop peer. A project of its own, built inside its image, so
-# none of it enters iec61850-rs's dependency graph.
+# none of it enters iec61850-kit's dependency graph.
 [package]
 name = "csp0924-probe"
 version = "0.0.0"

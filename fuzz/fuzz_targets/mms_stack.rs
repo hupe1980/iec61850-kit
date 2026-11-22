@@ -6,15 +6,15 @@
 //! and decode again without panicking, which is where a codec that disagrees with itself
 //! shows up.
 
-use iec61850_rs::common::Limits;
-use iec61850_rs::proto::mms::control::{ControlRequest, LastApplError};
-use iec61850_rs::proto::mms::report::{Report, ReportAssembler};
-use iec61850_rs::proto::mms::{Mms, Unconfirmed};
-use iec61850_rs::proto::osi::acse::Apdu;
-use iec61850_rs::proto::osi::cotp::{Reassembler, Tpdu};
-use iec61850_rs::proto::osi::presentation::Ppdu;
-use iec61850_rs::proto::osi::session::Spdu;
-use iec61850_rs::proto::osi::tpkt;
+use iec61850_kit::common::Limits;
+use iec61850_kit::proto::mms::control::{ControlRequest, LastApplError};
+use iec61850_kit::proto::mms::report::{Report, ReportAssembler};
+use iec61850_kit::proto::mms::{Mms, Unconfirmed};
+use iec61850_kit::proto::osi::acse::Apdu;
+use iec61850_kit::proto::osi::cotp::{Reassembler, Tpdu};
+use iec61850_kit::proto::osi::presentation::Ppdu;
+use iec61850_kit::proto::osi::session::Spdu;
+use iec61850_kit::proto::osi::tpkt;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -70,7 +70,7 @@ fuzz_target!(|data: &[u8]| {
         }
     }
     // The control structures, from the same arbitrary bytes read as a `Data` value.
-    if let Ok(values) = iec61850_rs::proto::data::decode_all(data, &Limits::DEFAULT) {
+    if let Ok(values) = iec61850_kit::proto::data::decode_all(data, &Limits::DEFAULT) {
         if let Some(v) = values.first() {
             if let Ok(r) = ControlRequest::from_value(v) {
                 assert_eq!(ControlRequest::from_value(&r.to_value()).unwrap(), r, "the control codec must be a fixed point");

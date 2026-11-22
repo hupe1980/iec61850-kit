@@ -9,10 +9,10 @@
 
 use std::time::Duration;
 
-use iec61850_rs::Fc;
-use iec61850_rs::client::{Client, ControlModel, RcbSettings, TrgOps};
-use iec61850_rs::proto::data::{Dbpos, Typed, Value};
-use iec61850_rs::server::{Ied, Server, Stage};
+use iec61850_kit::Fc;
+use iec61850_kit::client::{Client, ControlModel, RcbSettings, TrgOps};
+use iec61850_kit::proto::data::{Dbpos, Typed, Value};
+use iec61850_kit::server::{Ied, Server, Stage};
 
 /// One bay: a trip signal, a measurement and a breaker, with a report control block over a
 /// data set of the trip. Everything below is read out of this and nothing else.
@@ -60,7 +60,7 @@ const RELAY: &str = r#"<?xml version="1.0"?>
   </DataTypeTemplates>
 </SCL>"#;
 
-fn main() -> iec61850_rs::Result<()> {
+fn main() -> iec61850_kit::Result<()> {
     // ---- the server: one file, one socket, no generated model and no build step ----------
     let mut server = Server::bind("127.0.0.1:0", Ied::from_scl(RELAY, Some("IED1"))?)?;
     server.on_control(Box::new(|event| {

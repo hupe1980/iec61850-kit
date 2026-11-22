@@ -18,10 +18,10 @@ mod harness;
 use std::time::Duration;
 
 use harness::{HOST, docker, exec, read_file, retry, sh};
-use iec61850_rs::Fc;
-use iec61850_rs::client::{Client, ControlModel, RcbSettings, TrgOps};
-use iec61850_rs::proto::data::{Typed, Value};
-use iec61850_rs::server::{Ied, Server, ServerHandle};
+use iec61850_kit::Fc;
+use iec61850_kit::client::{Client, ControlModel, RcbSettings, TrgOps};
+use iec61850_kit::proto::data::{Typed, Value};
+use iec61850_kit::server::{Ied, Server, ServerHandle};
 
 const LIB: &str = "libiec61850";
 /// The port a peer's server listens on inside its container.
@@ -142,7 +142,7 @@ fn an_array_element_is_read_as_one_element_in_both_directions() {
     let mut c = associate(addr);
     let spec = c.variable_type("testComplexArray/MHAI1$MX$HA", Fc::MX).expect("GetVariableAccessAttributes");
     assert!(
-        matches!(spec.component("phsAHar"), Some(iec61850_rs::proto::mms::typespec::TypeSpec::Array { elements: 16, .. })),
+        matches!(spec.component("phsAHar"), Some(iec61850_kit::proto::mms::typespec::TypeSpec::Array { elements: 16, .. })),
         "their type says sixteen: {spec:?}"
     );
     let whole = c.read("testComplexArray/MHAI1$MX$HA$phsAHar", Fc::MX).expect("the whole array");
@@ -197,7 +197,7 @@ fn this_client_drives_a_libiec61850_server() {
 /// and then serves this server's `FileOpen`/`FileRead`/`FileClose` out of its container.
 #[test]
 fn libiec61850s_file_tool_sends_a_file_to_this_server() {
-    use iec61850_rs::server::{AcsiConfig, DirectoryStore, FileWritePolicy, ServerConfig};
+    use iec61850_kit::server::{AcsiConfig, DirectoryStore, FileWritePolicy, ServerConfig};
     if !docker() {
         return;
     }
@@ -238,7 +238,7 @@ fn libiec61850s_log_client_reads_this_servers_log_from_either_store() {
     // Their client names the IED `TestIED`; their model names it `simpleIO`. Same model.
     let xml = read_file(&peer, "examples/server_example_logging/simpleIO_direct_control.cid").replace("\"simpleIO\"", "\"TestIED\"");
 
-    let received = |store: Option<Box<dyn iec61850_rs::server::LogStore>>| -> usize {
+    let received = |store: Option<Box<dyn iec61850_kit::server::LogStore>>| -> usize {
         let ied = Ied::from_scl(&xml, None).expect("their model");
         let mut server = Server::bind(&std::net::SocketAddr::new(harness::bind_addr(), 0).to_string(), ied).expect("bind");
         if let Some(store) = store {
@@ -272,7 +272,7 @@ fn libiec61850s_log_client_reads_this_servers_log_from_either_store() {
     {
         let path = std::env::temp_dir().join(format!("iec61850-interop-log-{}.redb", std::process::id()));
         let _ = std::fs::remove_file(&path);
-        let store = iec61850_rs::server::RedbLog::open(&path, vec![String::from("TestIEDGenericIO/LLN0$EventLog")], 100).expect("open");
+        let store = iec61850_kit::server::RedbLog::open(&path, vec![String::from("TestIEDGenericIO/LLN0$EventLog")], 100).expect("open");
         assert_eq!(received(Some(Box::new(store))), memory, "the redb store answers their client exactly as the memory store does");
         let _ = std::fs::remove_file(&path);
     }

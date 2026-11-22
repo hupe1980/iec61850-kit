@@ -1,11 +1,11 @@
-# Zola configuration for the iec61850-rs documentation site.
+# Zola configuration for the iec61850-kit documentation site.
 #
 # Built and deployed by .github/workflows/site.yml. Everything the site needs is in this
 # directory: no theme submodule, no npm, no CDN — a page that fetches nothing renders the
 # same in ten years as it does today, and passes a strict content-security policy.
 
-base_url = "https://hupe1980.github.io/iec61850-rs"
-title = "iec61850-rs"
+base_url = "https://hupe1980.github.io/iec61850-kit"
+title = "iec61850-kit"
 description = "IEC 61850 in Rust: GOOSE and Sampled Values for the process bus, an MMS client and server for the station bus, and SCL as the configuration for both. Memory-safe, sans-IO, no_std-capable, MIT or Apache-2.0."
 default_language = "en"
 author = "Frank Hübner"
@@ -39,9 +39,9 @@ index_format = "elasticlunr_json"
 # crate is dual-licensed and schema.org takes one URL.
 license_url = "https://spdx.org/licenses/MIT.html"
 # Shown in the header and in structured data.
-repository = "https://github.com/hupe1980/iec61850-rs"
-crate = "https://crates.io/crates/iec61850-rs"
-api_docs = "https://docs.rs/iec61850-rs"
+repository = "https://github.com/hupe1980/iec61850-kit"
+crate = "https://crates.io/crates/iec61850-kit"
+api_docs = "https://docs.rs/iec61850-kit"
 license = "MIT OR Apache-2.0"
 # Keywords carried into <meta name="keywords"> and the JSON-LD description.
 keywords = "IEC 61850, IEC 61850 Rust, GOOSE, Sampled Values, SV, 9-2LE, IEC 61869-9, MMS, IEC 61850-8-1, ACSI, MMS client, MMS server, IED simulator, reporting, SCL, ICD, CID, SCD, substation automation, process bus, station bus, merging unit, digital substation, Rust, IEC 62351, power utility automation"
@@ -54,10 +54,10 @@ path = "docs/"
 
 [[extra.nav]]
 name = "API"
-path = "https://docs.rs/iec61850-rs"
+path = "https://docs.rs/iec61850-kit"
 external = true
 
 [[extra.nav]]
 name = "crates.io"
-path = "https://crates.io/crates/iec61850-rs"
+path = "https://crates.io/crates/iec61850-kit"
 external = true

@@ -11,14 +11,14 @@ mod common;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
-use iec61850_rs::client::Client;
-use iec61850_rs::common::{Limits, MacAddr};
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, Frame};
-use iec61850_rs::proto::goose::GoosePduView;
-use iec61850_rs::proto::sv::SavPduView;
-use iec61850_rs::server::{Ied, Server, ServerHandle};
-use iec61850_rs::{Error, Fc};
+use iec61850_kit::client::Client;
+use iec61850_kit::common::{Limits, MacAddr};
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, Frame};
+use iec61850_kit::proto::goose::GoosePduView;
+use iec61850_kit::proto::sv::SavPduView;
+use iec61850_kit::server::{Ied, Server, ServerHandle};
+use iec61850_kit::{Error, Fc};
 
 const FIXTURE: &str = include_str!("fixtures/process_bus.icd");
 const SOURCE: MacAddr = MacAddr([0x02, 0, 0, 0, 0, 0x61]);
@@ -164,7 +164,7 @@ fn published_frames_dissect_as_the_file_declares() {
     let dir = std::env::temp_dir().join(format!("iec61850-process-bus-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let pcap = dir.join("published.pcap");
-    let mut w = iec61850_rs::pcap::Writer::create(&pcap).unwrap();
+    let mut w = iec61850_kit::pcap::Writer::create(&pcap).unwrap();
     for (k, (_, f)) in frames.iter().enumerate() {
         w.write(k as u64 * 1000, f).unwrap();
     }
@@ -204,38 +204,38 @@ fn published_frames_dissect_as_the_file_declares() {
 
 /// A store as slow as an `fsync` on every append — what a durable log costs inside a commit.
 #[derive(Debug)]
-struct SlowLog(iec61850_rs::server::MemoryLog);
+struct SlowLog(iec61850_kit::server::MemoryLog);
 
-impl iec61850_rs::server::LogStore for SlowLog {
-    fn append(&mut self, log: &str, entry: iec61850_rs::server::NewEntry) -> Result<iec61850_rs::server::LogBounds, iec61850_rs::server::LogError> {
+impl iec61850_kit::server::LogStore for SlowLog {
+    fn append(&mut self, log: &str, entry: iec61850_kit::server::NewEntry) -> Result<iec61850_kit::server::LogBounds, iec61850_kit::server::LogError> {
         std::thread::sleep(Duration::from_millis(3));
         self.0.append(log, entry)
     }
     fn by_time(
         &self,
         log: &str,
-        from: Option<iec61850_rs::common::EntryTime>,
-        to: Option<iec61850_rs::common::EntryTime>,
+        from: Option<iec61850_kit::common::EntryTime>,
+        to: Option<iec61850_kit::common::EntryTime>,
         limit: usize,
-    ) -> Result<iec61850_rs::server::LogPage, iec61850_rs::server::LogError> {
+    ) -> Result<iec61850_kit::server::LogPage, iec61850_kit::server::LogError> {
         self.0.by_time(log, from, to, limit)
     }
     fn after_entry(
         &self,
         log: &str,
         entry_id: u64,
-        at: iec61850_rs::common::EntryTime,
+        at: iec61850_kit::common::EntryTime,
         limit: usize,
-    ) -> Result<iec61850_rs::server::LogPage, iec61850_rs::server::LogError> {
+    ) -> Result<iec61850_kit::server::LogPage, iec61850_kit::server::LogError> {
         self.0.after_entry(log, entry_id, at, limit)
     }
-    fn bounds(&self, log: &str) -> Result<Option<iec61850_rs::server::LogBounds>, iec61850_rs::server::LogError> {
+    fn bounds(&self, log: &str) -> Result<Option<iec61850_kit::server::LogBounds>, iec61850_kit::server::LogError> {
         self.0.bounds(log)
     }
-    fn len(&self, log: &str) -> Result<usize, iec61850_rs::server::LogError> {
+    fn len(&self, log: &str) -> Result<usize, iec61850_kit::server::LogError> {
         self.0.len(log)
     }
-    fn purge(&mut self, log: &str) -> Result<(), iec61850_rs::server::LogError> {
+    fn purge(&mut self, log: &str) -> Result<(), iec61850_kit::server::LogError> {
         self.0.purge(log)
     }
 }
@@ -249,7 +249,7 @@ fn sampled_values_keep_their_rate_while_commits_wait_on_a_slow_log() {
     server.set_source_mac(SOURCE);
     let logs = server.log_references();
     assert!(!logs.is_empty(), "the fixture declares a log");
-    server.set_log_store(Box::new(SlowLog(iec61850_rs::server::MemoryLog::for_logs(logs, 100_000))));
+    server.set_log_store(Box::new(SlowLog(iec61850_kit::server::MemoryLog::for_logs(logs, 100_000))));
     let (tx, rx) = channel();
     server
         .publish_to(move |f| {

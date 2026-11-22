@@ -11,7 +11,7 @@
       "description": {{ page_desc | json_encode | safe }},
       "url": "{{ page_url | safe }}",
       "inLanguage": "en",
-      "isPartOf": { "@type": "WebSite", "name": "iec61850-rs", "url": "{{ config.base_url | safe }}/" },
+      "isPartOf": { "@type": "WebSite", "name": "iec61850-kit", "url": "{{ config.base_url | safe }}/" },
       "hasPart": [
         {%- for p in section.pages %}
         {

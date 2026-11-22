@@ -178,16 +178,16 @@ mod mms_server {
     use std::thread;
     use std::time::Duration;
 
-    use iec61850_rs::ber::Cursor;
-    use iec61850_rs::common::{EntryTime, Instant, Limits, Quality, TimeQuality, UtcTime};
-    use iec61850_rs::proto::data::{Dbpos, Typed, Value};
-    use iec61850_rs::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
-    use iec61850_rs::proto::mms::control::{AddCause, ControlError, ControlRequest, LastApplError, Origin, OriginCategory};
-    use iec61850_rs::proto::mms::file::{DirectoryEntry, FileAttributes, FileNameBuf};
-    use iec61850_rs::proto::mms::journal::{JournalEntry, JournalVariable, TimeOfDay};
-    use iec61850_rs::proto::mms::report::{OptFlds, ReasonCode, Report, ReportEntry, TrgOps};
-    use iec61850_rs::proto::mms::typespec::{Component, TypeSpec};
-    use iec61850_rs::proto::mms::{
+    use iec61850_kit::ber::Cursor;
+    use iec61850_kit::common::{EntryTime, Instant, Limits, Quality, TimeQuality, UtcTime};
+    use iec61850_kit::proto::data::{Dbpos, Typed, Value};
+    use iec61850_kit::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
+    use iec61850_kit::proto::mms::control::{AddCause, ControlError, ControlRequest, LastApplError, Origin, OriginCategory};
+    use iec61850_kit::proto::mms::file::{DirectoryEntry, FileAttributes, FileNameBuf};
+    use iec61850_kit::proto::mms::journal::{JournalEntry, JournalVariable, TimeOfDay};
+    use iec61850_kit::proto::mms::report::{OptFlds, ReasonCode, Report, ReportEntry, TrgOps};
+    use iec61850_kit::proto::mms::typespec::{Component, TypeSpec};
+    use iec61850_kit::proto::mms::{
         AccessResult, ConfirmedRequest, ConfirmedResponse, Mms, ObjectName, ObjectScope, Unconfirmed, VariableAccess, VariableSpecification, WriteResult,
         object_class,
     };
@@ -502,7 +502,7 @@ mod mms_server {
         };
         match service {
             ConfirmedRequest::Identify => {
-                s.assoc.respond(invoke_id, &ConfirmedResponse::Identify { vendor: "hupe1980", model: "iec61850-rs", revision: "0.1.0" }).unwrap();
+                s.assoc.respond(invoke_id, &ConfirmedResponse::Identify { vendor: "hupe1980", model: "iec61850-kit", revision: "0.1.0" }).unwrap();
             }
             ConfirmedRequest::GetNameList { object_class: class, scope, continue_after } => {
                 let (names, more): (&[&str], bool) = match (class, scope, continue_after) {
@@ -636,8 +636,8 @@ mod mms_server {
                     .respond(
                         invoke_id,
                         &ConfirmedResponse::Status {
-                            logical: iec61850_rs::proto::mms::vmd_logical::STATE_CHANGES_ALLOWED,
-                            physical: iec61850_rs::proto::mms::vmd_physical::OPERATIONAL,
+                            logical: iec61850_kit::proto::mms::vmd_logical::STATE_CHANGES_ALLOWED,
+                            physical: iec61850_kit::proto::mms::vmd_physical::OPERATIONAL,
                             local_detail: None,
                         },
                     )
@@ -722,7 +722,7 @@ mod mms_server {
         s.assoc.respond(invoke_id, &ConfirmedResponse::Read { access: None, results }).unwrap();
     }
 
-    fn write(s: &mut Server, invoke_id: i64, access: &VariableAccess<'_>, values: &[iec61850_rs::ber::Tlv<'_>]) {
+    fn write(s: &mut Server, invoke_id: i64, access: &VariableAccess<'_>, values: &[iec61850_kit::ber::Tlv<'_>]) {
         let names: Vec<Option<String>> = match access {
             VariableAccess::ListOfVariable(v) => v.iter().map(|spec| item_of(spec).map(String::from)).collect(),
             VariableAccess::VariableListName(_) => vec![None],
@@ -731,7 +731,7 @@ mod mms_server {
         let mut fire_gi = false;
         let mut control: Option<(String, ControlRequest)> = None;
         for (name, tlv) in names.iter().zip(values) {
-            let value = iec61850_rs::proto::data::DataView::from_tlv(*tlv).unwrap().to_owned(&Limits::DEFAULT).unwrap();
+            let value = iec61850_kit::proto::data::DataView::from_tlv(*tlv).unwrap().to_owned(&Limits::DEFAULT).unwrap();
             match name.as_deref() {
                 Some(item) if item.starts_with(RCB) => {
                     let attribute = item.rsplit('$').next().unwrap_or("").to_string();

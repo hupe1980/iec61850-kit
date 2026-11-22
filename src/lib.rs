@@ -24,10 +24,10 @@
 //! # // Gated so the example still compiles when the crate is built without `goose`.
 //! # #[cfg(feature = "goose")]
 //! # mod example {
-//! # use iec61850_rs::common::Instant;
-//! # use iec61850_rs::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
-//! # use iec61850_rs::proto::ethernet::MacAddr;
-//! # pub fn run() -> iec61850_rs::Result<()> {
+//! # use iec61850_kit::common::Instant;
+//! # use iec61850_kit::proto::goose::{Subscriber, SubscriberConfig, SubscriberEvent, SubscriptionKey};
+//! # use iec61850_kit::proto::ethernet::MacAddr;
+//! # pub fn run() -> iec61850_kit::Result<()> {
 //! # let (frame, now) = (&[][..], Instant::ZERO);
 //! let mut sub = Subscriber::new(SubscriberConfig::new(SubscriptionKey {
 //!     dst: MacAddr::parse("01-0C-CD-01-00-05")?,
@@ -96,7 +96,7 @@
 //! Not included: TLS and the IEC 62351-6 authentication extension. The API changes between
 //! minor versions, and nothing here has been through a conformance laboratory.
 //!
-//! The guide at <https://hupe1980.github.io/iec61850-rs/> covers the protocols themselves,
+//! The guide at <https://hupe1980.github.io/iec61850-kit/> covers the protocols themselves,
 //! and is explicit about what is verified and what is not.
 //!
 //! # Reading the comments

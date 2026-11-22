@@ -17,10 +17,10 @@ use std::thread;
 use std::time::Duration;
 
 use common::spawn_mms_server as spawn;
-use iec61850_rs::Fc;
-use iec61850_rs::client::{Client, ClientConfig};
-use iec61850_rs::proto::data::{Typed, Value};
-use iec61850_rs::proto::mms::association::AssociationConfig;
+use iec61850_kit::Fc;
+use iec61850_kit::client::{Client, ClientConfig};
+use iec61850_kit::proto::data::{Typed, Value};
+use iec61850_kit::proto::mms::association::AssociationConfig;
 
 #[test]
 fn a_client_associates_browses_reads_and_writes() {
@@ -65,7 +65,7 @@ fn reports_that_arrive_during_a_request_are_kept_rather_than_dropped() {
     let mut c = Client::connect(&addr).expect("associate");
     // The server pushed three reports the moment the association came up, so they are
     // interleaved with the handshake and with whatever is asked next.
-    assert_eq!(c.identify().unwrap().model, "iec61850-rs");
+    assert_eq!(c.identify().unwrap().model, "iec61850-kit");
     let mut seen = 0;
     while let Some(r) = c.next_report(Duration::from_millis(500)).unwrap() {
         assert_eq!(r.rpt_id, "IED1LD0/LLN0$RP$urcb01");
@@ -99,13 +99,13 @@ fn a_peer_that_hangs_up_mid_association_is_reported_rather_than_waited_on() {
     let cfg =
         ClientConfig { association: AssociationConfig { connect_timeout_ms: 500, ..AssociationConfig::default() }, connect_timeout: Duration::from_secs(2) };
     let e = Client::connect_with(&addr, &cfg).unwrap_err();
-    assert!(matches!(e, iec61850_rs::Error::Io(_)), "{e:?}");
+    assert!(matches!(e, iec61850_kit::Error::Io(_)), "{e:?}");
 }
 
 #[test]
 fn a_report_control_block_is_read_configured_enabled_and_decoded() {
     use common::{RCB_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{RcbSettings, TrgOps};
+    use iec61850_kit::client::{RcbSettings, TrgOps};
 
     let addr = spawn_mms_server_with(ServerBehaviour::default());
     let mut c = Client::connect(&addr).expect("associate");
@@ -151,7 +151,7 @@ fn a_report_control_block_is_read_configured_enabled_and_decoded() {
 
     // A write to a configured attribute while reporting is on is refused by the server.
     let denied = c.write_rcb(RCB_REFERENCE, Fc::RP, &RcbSettings::new().with_buf_tm(50));
-    assert!(matches!(denied, Err(iec61850_rs::Error::DataAccess(3))), "{denied:?}");
+    assert!(matches!(denied, Err(iec61850_kit::Error::DataAccess(3))), "{denied:?}");
 
     c.disable_rcb(RCB_REFERENCE, Fc::RP).unwrap();
     assert!(!c.read_rcb(RCB_REFERENCE, Fc::RP).unwrap().rpt_ena);
@@ -161,7 +161,7 @@ fn a_report_control_block_is_read_configured_enabled_and_decoded() {
 #[test]
 fn a_report_asking_for_references_gets_them() {
     use common::{RCB_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{OptFlds, RcbSettings, TrgOps};
+    use iec61850_kit::client::{OptFlds, RcbSettings, TrgOps};
 
     let addr = spawn_mms_server_with(ServerBehaviour::default());
     let mut c = Client::connect(&addr).expect("associate");
@@ -187,8 +187,8 @@ fn a_report_asking_for_references_gets_them() {
 #[test]
 fn a_direct_control_is_one_write() {
     use common::{CONTROL_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{Check, ControlModel, OriginCategory};
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::{Check, ControlModel, OriginCategory};
+    use iec61850_kit::proto::data::Dbpos;
 
     let addr = spawn_mms_server_with(ServerBehaviour::default());
     let mut c = Client::connect(&addr).expect("associate");
@@ -207,8 +207,8 @@ fn a_direct_control_is_one_write() {
 #[test]
 fn select_before_operate_with_enhanced_security_waits_for_the_termination() {
     use common::{CONTROL_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::ControlModel;
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::ControlModel;
+    use iec61850_kit::proto::data::Dbpos;
 
     let addr = spawn_mms_server_with(ServerBehaviour { enhanced_control: true, ..ServerBehaviour::default() });
     let mut c = Client::connect(&addr).expect("associate");
@@ -229,8 +229,8 @@ fn select_before_operate_with_enhanced_security_waits_for_the_termination() {
 #[test]
 fn a_refused_control_names_its_add_cause_rather_than_reporting_success() {
     use common::{CONTROL_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{AddCause, ControlModel};
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::{AddCause, ControlModel};
+    use iec61850_kit::proto::data::Dbpos;
 
     // The write succeeds and the *command* fails, which is the whole reason enhanced
     // security exists and the case a thin wrapper reports as success.
@@ -239,7 +239,7 @@ fn a_refused_control_names_its_add_cause_rather_than_reporting_success() {
     let mut c = Client::connect(&addr).expect("associate");
     let e = c.control(CONTROL_REFERENCE).model(ControlModel::DirectEnhanced).timeout(Duration::from_secs(2)).execute(&Value::dbpos(Dbpos::On)).unwrap_err();
     match e {
-        iec61850_rs::Error::ControlRejected { add_cause } => {
+        iec61850_kit::Error::ControlRejected { add_cause } => {
             assert_eq!(AddCause::from_code(add_cause), AddCause::BlockedByInterlocking);
         }
         other => panic!("expected a rejection, got {other:?}"),
@@ -250,8 +250,8 @@ fn a_refused_control_names_its_add_cause_rather_than_reporting_success() {
 #[test]
 fn a_report_and_a_termination_do_not_consume_each_other() {
     use common::{CONTROL_REFERENCE, RCB_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{ControlModel, RcbSettings, TrgOps};
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::{ControlModel, RcbSettings, TrgOps};
+    use iec61850_kit::proto::data::Dbpos;
 
     // Reports and command terminations arrive on the same channel. A client waiting for one
     // must not swallow the other — which is why the queue is scanned rather than popped.
@@ -280,8 +280,8 @@ fn a_report_and_a_termination_do_not_consume_each_other() {
 
 #[test]
 fn the_engineering_file_can_be_the_client_configuration() {
-    use iec61850_rs::client::ClientConfig;
-    use iec61850_rs::scl::Scl;
+    use iec61850_kit::client::ClientConfig;
+    use iec61850_kit::scl::Scl;
 
     // `Communication/ConnectedAP` is where an association is engineered. Reading the
     // selectors out of it is the same rule the process bus already follows.
@@ -326,8 +326,8 @@ fn the_engineering_file_can_be_the_client_configuration() {
 #[test]
 fn a_termination_for_another_command_is_not_mistaken_for_this_one() {
     use common::{CONTROL_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::ControlModel;
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::ControlModel;
+    use iec61850_kit::proto::data::Dbpos;
 
     // The only thing tying a command termination to its command is the `ctlNum` both carry.
     // A client that takes "the next one" reports that a breaker closed when it was a
@@ -348,7 +348,7 @@ fn a_termination_for_another_command_is_not_mistaken_for_this_one() {
 #[test]
 fn enabling_a_control_block_twice_takes_it_over_rather_than_failing() {
     use common::{RCB_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{RcbSettings, TrgOps};
+    use iec61850_kit::client::{RcbSettings, TrgOps};
 
     // A server refuses every write but `RptEna` while reporting is on, so re-configuring an
     // enabled block has to disable it first. A client that does not is a client that works
@@ -369,13 +369,13 @@ fn enabling_a_control_block_twice_takes_it_over_rather_than_failing() {
 #[test]
 fn a_status_only_object_is_refused_without_a_round_trip() {
     use common::{CONTROL_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{AddCause, ControlModel};
+    use iec61850_kit::client::{AddCause, ControlModel};
 
     let addr = spawn_mms_server_with(ServerBehaviour::default());
     let mut c = Client::connect(&addr).expect("associate");
     let before = c.stats().requests_sent;
     let e = c.control(CONTROL_REFERENCE).model(ControlModel::StatusOnly).execute(&Value::Boolean(true)).unwrap_err();
-    assert!(matches!(e, iec61850_rs::Error::ControlRejected { add_cause } if AddCause::from_code(add_cause) == AddCause::NotSupported), "{e:?}");
+    assert!(matches!(e, iec61850_kit::Error::ControlRejected { add_cause } if AddCause::from_code(add_cause) == AddCause::NotSupported), "{e:?}");
     assert_eq!(c.stats().requests_sent, before, "and nothing was put on the wire");
     c.release().unwrap();
 }
@@ -383,7 +383,7 @@ fn a_status_only_object_is_refused_without_a_round_trip() {
 #[test]
 fn a_segmented_report_reaches_the_application_whole_or_not_at_all() {
     use common::{RCB_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::{RcbSettings, TrgOps};
+    use iec61850_kit::client::{RcbSettings, TrgOps};
 
     // The server splits every report into one segment per data-set member. A client that
     // ignores `SubSeqNum`/`MoreSegmentsFollow` sees two reports with one member each and no
@@ -405,7 +405,7 @@ fn a_segmented_report_reaches_the_application_whole_or_not_at_all() {
 #[test]
 fn a_variables_type_is_read_from_the_server_rather_than_assumed() {
     use common::{CONTROL_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::client::TypeSpec;
+    use iec61850_kit::client::TypeSpec;
 
     let addr = spawn_mms_server_with(ServerBehaviour::default());
     let mut c = Client::connect(&addr).expect("associate");
@@ -435,9 +435,9 @@ fn a_data_set_is_created_and_deleted_and_a_refusal_is_not_success() {
     // A data set the server matches but will not delete is *not* success: the difference
     // between "gone" and "refused" is the whole answer.
     let e = c.delete_data_set("IED1LD0/LLN0$dsTrip").unwrap_err();
-    assert!(matches!(e, iec61850_rs::Error::DataAccess(3)), "{e:?}");
+    assert!(matches!(e, iec61850_kit::Error::DataAccess(3)), "{e:?}");
     // And one it has never heard of is not found.
-    assert!(matches!(c.delete_data_set("IED1LD0/LLN0$dsNope").unwrap_err(), iec61850_rs::Error::NotFound(_)));
+    assert!(matches!(c.delete_data_set("IED1LD0/LLN0$dsNope").unwrap_err(), iec61850_kit::Error::NotFound(_)));
     c.release().unwrap();
 }
 
@@ -457,7 +457,7 @@ fn a_file_is_listed_read_and_deleted_and_its_handle_is_given_back() {
     assert_eq!(c.read_file(FILE_REFERENCE, 64 * 1024).expect("read"), FILE_CONTENTS);
     // A file larger than the caller will hold is an error, and the handle is still closed —
     // the server asserts that, because a leaked frsmID is a file left open in a relay.
-    assert!(matches!(c.read_file(FILE_REFERENCE, 4).unwrap_err(), iec61850_rs::Error::LimitExceeded { .. }));
+    assert!(matches!(c.read_file(FILE_REFERENCE, 4).unwrap_err(), iec61850_kit::Error::LimitExceeded { .. }));
     assert_eq!(c.read_file(FILE_REFERENCE, 64 * 1024).expect("read again"), FILE_CONTENTS, "and the next open still works");
     c.delete_file(FILE_REFERENCE).expect("delete");
     c.release().unwrap();
@@ -466,7 +466,7 @@ fn a_file_is_listed_read_and_deleted_and_its_handle_is_given_back() {
 #[test]
 fn a_log_is_read_by_time_and_resumed_after_the_last_entry_seen() {
     use common::{LCB_REFERENCE, LOG_REFERENCE, ServerBehaviour, spawn_mms_server_with};
-    use iec61850_rs::common::EntryTime;
+    use iec61850_kit::common::EntryTime;
 
     let addr = spawn_mms_server_with(ServerBehaviour::default());
     let mut c = Client::connect(&addr).expect("associate");

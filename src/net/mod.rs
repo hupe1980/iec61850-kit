@@ -14,20 +14,20 @@
 //!
 //! ```no_run
 //! # #[cfg(feature = "goose")]
-//! # fn main() -> iec61850_rs::Result<()> {
+//! # fn main() -> iec61850_kit::Result<()> {
 //! use std::time::Duration;
-//! use iec61850_rs::net::{Link, LinkOptions};
-//! use iec61850_rs::proto::goose::{Subscriber, SubscriberConfig, SubscriptionKey};
+//! use iec61850_kit::net::{Link, LinkOptions};
+//! use iec61850_kit::proto::goose::{Subscriber, SubscriberConfig, SubscriptionKey};
 //!
-//! let key = SubscriptionKey { dst: iec61850_rs::MacAddr::parse("01-0C-CD-01-00-05")?, appid: 5, gocb_ref: "IED1LD0/LLN0$GO$gcbTrip".into() };
+//! let key = SubscriptionKey { dst: iec61850_kit::MacAddr::parse("01-0C-CD-01-00-05")?, appid: 5, gocb_ref: "IED1LD0/LLN0$GO$gcbTrip".into() };
 //! let mut link = Link::open("eth0", &LinkOptions::goose().join(key.dst))?;
-//! iec61850_rs::net::drop_capabilities()?; // CAP_NET_RAW is not needed any more
+//! iec61850_kit::net::drop_capabilities()?; // CAP_NET_RAW is not needed any more
 //! let mut sub = Subscriber::new(SubscriberConfig::new(key));
 //! loop {
 //!     if let Some(rx) = link.recv(Some(Duration::from_millis(10)))? {
 //!         sub.on_frame(rx.at, rx.frame);
 //!     }
-//!     sub.on_timeout(iec61850_rs::common::monotonic_now());
+//!     sub.on_timeout(iec61850_kit::common::monotonic_now());
 //!     while let Some(event) = sub.poll_event() {
 //!         println!("{event:?}");
 //!     }

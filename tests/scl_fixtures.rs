@@ -7,10 +7,10 @@
 
 mod common;
 
-use iec61850_rs::common::Edition;
-use iec61850_rs::model::{DiagnosticCode, IedModel};
-use iec61850_rs::proto::ethernet::MacAddr;
-use iec61850_rs::scl::{self, FindingCode, LoadOptions};
+use iec61850_kit::common::Edition;
+use iec61850_kit::model::{DiagnosticCode, IedModel};
+use iec61850_kit::proto::ethernet::MacAddr;
+use iec61850_kit::scl::{self, FindingCode, LoadOptions};
 
 #[test]
 fn openscd_fixtures_load() {
@@ -234,8 +234,8 @@ fn subscriptions_resolve_signal_bound_ext_refs_in_the_corpus() {
 #[cfg(feature = "server")]
 #[test]
 fn the_openscd_edition_pair_serves_the_add_causes_of_its_edition() {
-    use iec61850_rs::proto::mms::control::AddCause;
-    use iec61850_rs::server::Ied;
+    use iec61850_kit::proto::mms::control::AddCause;
+    use iec61850_kit::server::Ied;
 
     for (file, edition, already_selected) in
         [("valid2003.scd", Edition::Ed1, AddCause::SelectFailed), ("valid2007B4.scd", Edition::Ed2_1, AddCause::ObjectAlreadySelected)]

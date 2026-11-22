@@ -15,12 +15,12 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use iec61850_rs::Fc;
-use iec61850_rs::client::Client;
-use iec61850_rs::client::RcbSettings;
-use iec61850_rs::common::EntryTime;
-use iec61850_rs::proto::data::{Dbpos, Value};
-use iec61850_rs::server::{DirectoryStore, Ied, Server, ServerHandle};
+use iec61850_kit::Fc;
+use iec61850_kit::client::Client;
+use iec61850_kit::client::RcbSettings;
+use iec61850_kit::common::EntryTime;
+use iec61850_kit::proto::data::{Dbpos, Value};
+use iec61850_kit::server::{DirectoryStore, Ied, Server, ServerHandle};
 
 /// The model of `tests/mms_server.rs`, kept here verbatim so this test is readable on its
 /// own: one logical device with a mode, a measurement, a trip, a breaker, a report control
@@ -95,7 +95,7 @@ fn spawn() -> (String, Recording, ServerHandle, std::path::PathBuf) {
 /// other's bytes — which looks exactly like an encoding defect and is not one.
 fn dissect(name: &str, packets: &[(bool, Vec<u8>)]) -> String {
     let tshark = common::tshark().expect("tshark present");
-    let dir = std::env::temp_dir().join(format!("iec61850-rs-mms-oracle-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("iec61850-kit-mms-oracle-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let pcap = dir.join(format!("{name}.pcap"));
     common::write_pcap_tcp(&pcap, packets);
@@ -164,7 +164,7 @@ fn the_whole_station_bus_dissects_as_what_we_put_in() {
         "\"mms.vmdLogicalStatus\": \"0\"",
         "\"mms.vmdPhysicalStatus\": \"0\"",
         "\"mms.listOfCapabilities_item\": \"IEC 61850-8-1:2011+AMD1:2020\"",
-        "\"mms.modelName\": \"iec61850-rs\"",
+        "\"mms.modelName\": \"iec61850-kit\"",
         "\"mms.domainId\": \"IED1LD0\"",
         "\"mms.Identifier\": \"LLN0$ST$Mod$stVal\"",
         "\"mms.objectName_domain_specific_itemId\": \"LLN0$dsTrip\"",
@@ -250,7 +250,7 @@ fn segmented_and_structured_reports_dissect_as_what_we_put_in() {
     let (addr, log) = recording_proxy(target);
 
     // A small client, so the twelve-member interrogation cannot fit one PDU.
-    let mut cfg = iec61850_rs::client::ClientConfig::default();
+    let mut cfg = iec61850_kit::client::ClientConfig::default();
     cfg.association.max_pdu = 900;
     let mut c = Client::connect_with(&addr, &cfg).expect("associate");
     let settings = RcbSettings::new().with_useful_fields();
@@ -338,7 +338,7 @@ fn exercise(addr: &str, handle: &ServerHandle) {
 /// requester, so the one this crate's client is otherwise the only reader of.
 #[test]
 fn a_set_file_dissects_in_both_directions() {
-    use iec61850_rs::server::{AcsiConfig, FileWritePolicy, ServerConfig};
+    use iec61850_kit::server::{AcsiConfig, FileWritePolicy, ServerConfig};
     if common::tshark().is_none() {
         return;
     }

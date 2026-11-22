@@ -31,8 +31,8 @@
 //! # // Gated: `supervise` is a `server` feature and the subscriber it takes is a `goose` one.
 //! # #[cfg(feature = "goose")]
 //! # mod example {
-//! # use iec61850_rs::server::{ServerHandle, SubscriptionStatus};
-//! # pub fn run(updates: &ServerHandle, sub: &iec61850_rs::proto::goose::Subscriber) {
+//! # use iec61850_kit::server::{ServerHandle, SubscriptionStatus};
+//! # pub fn run(updates: &ServerHandle, sub: &iec61850_kit::proto::goose::Subscriber) {
 //! updates.txn().supervise("IED1LD0/LGOS1", &SubscriptionStatus::from_goose(sub)).commit();
 //! # }
 //! # }

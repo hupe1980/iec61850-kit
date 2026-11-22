@@ -1,5 +1,5 @@
 [package]
-name = "iec61850-rs-fuzz"
+name = "iec61850-kit-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-iec61850-rs = { path = "..", default-features = false, features = ["std", "goose", "sv", "mms", "scl", "pcap", "client", "server", "log-redb"] }
+iec61850-kit = { path = "..", default-features = false, features = ["std", "goose", "sv", "mms", "scl", "pcap", "client", "server", "log-redb"] }
 
 [[bin]]
 name = "goose_frame"

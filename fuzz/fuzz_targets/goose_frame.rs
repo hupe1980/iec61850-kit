@@ -1,9 +1,9 @@
 #![no_main]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 
-use iec61850_rs::common::{Instant, Limits};
-use iec61850_rs::proto::ethernet::{Frame, MacAddr};
-use iec61850_rs::proto::goose::{GoosePdu, GoosePduView, Subscriber, SubscriberConfig, SubscriptionKey};
+use iec61850_kit::common::{Instant, Limits};
+use iec61850_kit::proto::ethernet::{Frame, MacAddr};
+use iec61850_kit::proto::goose::{GoosePdu, GoosePduView, Subscriber, SubscriberConfig, SubscriptionKey};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

@@ -13,8 +13,8 @@
 //! panics, that the machine always either stays usable or reaches `Closed`, and that a
 //! closed association never asks to be woken again.
 
-use iec61850_rs::common::Instant;
-use iec61850_rs::proto::mms::association::{Association, AssociationConfig, AssociationEvent, State};
+use iec61850_kit::common::Instant;
+use iec61850_kit::proto::mms::association::{Association, AssociationConfig, AssociationEvent, State};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

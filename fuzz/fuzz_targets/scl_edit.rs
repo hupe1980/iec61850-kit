@@ -3,7 +3,7 @@
 #![no_main]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 
-use iec61850_rs::scl::{Document, LnRef, NewElement};
+use iec61850_kit::scl::{Document, LnRef, NewElement};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

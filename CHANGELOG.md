@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to `iec61850-rs`. The format follows [Keep a Changelog], and the project uses
+Notable changes to `iec61850-kit`. The format follows [Keep a Changelog], and the project uses
 [Semantic Versioning] — with the pre-1.0 caveat that the API changes freely between minor
 versions.
 
@@ -11,6 +11,20 @@ matter to a device on the other end of a substation LAN rather than to a compile
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
+
+## [0.5.0] — 2026-11-22
+
+The crate is renamed from `iec61850-rs` to **`iec61850-kit`**; the code is otherwise 0.4.0.
+
+### Changed
+
+- **Renamed.** The package is `iec61850-kit` and the library `iec61850_kit`. Update the
+  dependency and every path: `iec61850-rs = "0.4"` becomes `iec61850-kit = "0.5"`, and
+  `use iec61850_rs::…` becomes `use iec61850_kit::…`. The repository moved to
+  `hupe1980/iec61850-kit` (GitHub redirects the old URL) and the guide to
+  <https://hupe1980.github.io/iec61850-kit/>. `iec61850-rs` 0.4.1 re-exports this crate, so
+  an existing build keeps compiling until it is migrated; it receives no further releases.
+  The `ied` binary keeps its name.
 
 ## [0.4.0] — 2026-11-09
 
@@ -286,8 +300,9 @@ First release. GOOSE and Sampled Values with sans-IO publishers and subscribers,
 and MMS PDUs, the association state machine in both roles, a blocking MMS client and server,
 SCL loading and validation, pcap tooling and the `ied` command line.
 
-[Unreleased]: https://github.com/hupe1980/iec61850-rs/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/hupe1980/iec61850-rs/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/hupe1980/iec61850-rs/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/hupe1980/iec61850-rs/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/hupe1980/iec61850-rs/releases/tag/v0.1.0
+[Unreleased]: https://github.com/hupe1980/iec61850-kit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/hupe1980/iec61850-kit/releases/tag/v0.1.0

@@ -1,5 +1,5 @@
 +++
-title = "iec61850-rs — IEC 61850 in Rust: GOOSE, Sampled Values, MMS client and server"
+title = "iec61850-kit — IEC 61850 in Rust: GOOSE, Sampled Values, MMS client and server"
 description = "Open-source IEC 61850 library for Rust. GOOSE and Sampled Values publishers and subscribers (9-2LE, IEC 61869-9), an MMS client and server over the whole OSI station-bus stack, and SCL as the configuration for both. Panic-free decoders, sans-IO cores, no_std-capable, MIT or Apache-2.0."
 template = "index.html"
 
@@ -9,9 +9,9 @@ template = "index.html"
 # reviewable as content rather than as markup.
 hero_code = """
 ```rust
-use iec61850_rs::Fc;
-use iec61850_rs::client::Client;
-use iec61850_rs::server::{Ied, Server};
+use iec61850_kit::Fc;
+use iec61850_kit::client::Client;
+use iec61850_kit::server::{Ied, Server};
 
 // A server: the engineering file is the model. No code generation, no build step.
 let server = Server::bind("0.0.0.0:102", Ied::from_scl_file("relay.cid", None)?)?;
@@ -75,7 +75,7 @@ The mature implementations are C ([libiec61850][lib], GPLv3 or a commercial lice
 Java ([IEC61850bean][bean], MMS only). Both are good; neither is a permissively licensed,
 memory-safe core you can put in a merging unit, a WebAssembly analyser or a bare-metal IED.
 
-`iec61850-rs` is that core. `#![forbid(unsafe_code)]` across the library, a `no_std` build
+`iec61850-kit` is that core. `#![forbid(unsafe_code)]` across the library, a `no_std` build
 for microcontrollers, and MIT or Apache-2.0.
 
 [lib]: https://github.com/mz-automation/libiec61850
@@ -166,7 +166,7 @@ controlled. Here the file *is* the configuration — no generated model, no `.cf
 script — for all four roles:
 
 ```rust
-let subs = iec61850_rs::scl::subscriptions(&scd, "IED2", 50)?;   // what IED2 listens to
+let subs = iec61850_kit::scl::subscriptions(&scd, "IED2", 50)?;   // what IED2 listens to
 let server = Server::bind("0.0.0.0:102", Ied::from_scl_file("relay.cid", None)?)?;
 let client = Client::connect_scl(&Scl::parse(&scd)?, "IED1", None, None)?; // address, selectors, AP-title
 let mu     = model.sv_publisher_config("IED1LD0/LLN0.msvcb01", src, 50)?;
@@ -210,7 +210,7 @@ bus the server's service layer is a function from request to answer, tested with
 needs no privileges and no Linux.
 
 ```bash
-brew install hupe1980/tap/ied                        # or: cargo install iec61850-rs --features cli
+brew install hupe1980/tap/ied                        # or: cargo install iec61850-kit --features cli
 ied sim relay.icd                                    # be the IED: a server from an SCL file
 ied mu stream.pcap --profile f4800s2 --frames 2000   # virtual merging unit, IEC 61869-9
 ied sv monitor stream.pcap --scd bay.scd             # the real subscriber, channels named by the SCD

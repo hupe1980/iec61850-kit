@@ -31,7 +31,7 @@ count is chosen for.
 ## Publishing
 
 ```rust
-use iec61850_rs::proto::sv::{Publisher, PublisherConfig, SmpSynch, SvProfile};
+use iec61850_kit::proto::sv::{Publisher, PublisherConfig, SmpSynch, SvProfile};
 
 let mut mu = Publisher::new(
     PublisherConfig::new(header, "MU01", SvProfile::F4800S2I4U4)   // header: MAC, VLAN, APPID
@@ -105,7 +105,7 @@ normally read from the engineering file, so any engineered data set decodes — 
 9-2LE's.
 
 ```rust
-use iec61850_rs::proto::sv::{ChannelType, SampleLayout};
+use iec61850_kit::proto::sv::{ChannelType, SampleLayout};
 
 // Usually you do not write this: `IedModel::sv_sample_layout` builds it from a data set,
 // and `scl::subscriptions` hands it to you already attached to the stream.
@@ -130,8 +130,8 @@ The 9-2LE guideline fixes one data set, `PhsMeas1`: four currents and four volta
 32-bit signed raw value followed by a 32-bit quality word. Sixty-four octets per ASDU.
 
 ```rust
-use iec61850_rs::proto::sv::le::PhsMeas1;
-use iec61850_rs::Quality;
+use iec61850_kit::proto::sv::le::PhsMeas1;
+use iec61850_kit::Quality;
 
 let sample = PhsMeas1 {
     currents: [ia, ib, ic, in_],
@@ -159,7 +159,7 @@ One subscriber handles many streams. Samples go to a closure on the calling thre
 queue, no allocation — while only stream-level changes are queued as events.
 
 ```rust
-use iec61850_rs::proto::sv::{StreamConfig, StreamKey, Subscriber, SubscriberEvent};
+use iec61850_kit::proto::sv::{StreamConfig, StreamKey, Subscriber, SubscriberEvent};
 
 let mut sub = Subscriber::new(vec![
     StreamConfig::new(StreamKey { dst, appid: 0x4001, sv_id: "MU01".into() })

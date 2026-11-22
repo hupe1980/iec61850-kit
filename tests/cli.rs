@@ -178,10 +178,10 @@ fn goose_sniff_calls_out_a_replay() {
 
 /// Two GOOSE frames of one stream: a state change and the state after it.
 fn goose_frames() -> Vec<Vec<u8>> {
-    use iec61850_rs::common::{Instant, UtcTime};
-    use iec61850_rs::proto::data::Value;
-    use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr, VlanTag};
-    use iec61850_rs::proto::goose::{Publisher, PublisherConfig, Retransmission};
+    use iec61850_kit::common::{Instant, UtcTime};
+    use iec61850_kit::proto::data::Value;
+    use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr, VlanTag};
+    use iec61850_kit::proto::goose::{Publisher, PublisherConfig, Retransmission};
 
     let cfg = PublisherConfig {
         header: FrameHeader {
@@ -586,7 +586,7 @@ fn the_mms_report_and_control_subcommands_drive_a_control_block() {
 fn a_refused_control_is_reported_with_its_cause() {
     let addr = common::spawn_mms_server_with(common::ServerBehaviour {
         enhanced_control: true,
-        refuse_control: Some(iec61850_rs::client::AddCause::BlockedByInterlocking),
+        refuse_control: Some(iec61850_kit::client::AddCause::BlockedByInterlocking),
         ..common::ServerBehaviour::default()
     });
     let o = run(&["mms", "control", &addr, common::CONTROL_REFERENCE, "true", "--type", "bool", "--model", "direct-enhanced", "--timeout", "3"]);

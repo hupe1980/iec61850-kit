@@ -10,7 +10,7 @@
     {
       "@type": "SoftwareSourceCode",
       "@id": "{{ config.base_url | safe }}/#software",
-      "name": "iec61850-rs",
+      "name": "iec61850-kit",
       "description": {{ config.description | json_encode | safe }},
       "url": "{{ config.base_url | safe }}/",
       "codeRepository": "{{ config.extra.repository }}",
@@ -25,7 +25,7 @@
     {
       "@type": "WebSite",
       "@id": "{{ config.base_url | safe }}/#website",
-      "name": "iec61850-rs",
+      "name": "iec61850-kit",
       "url": "{{ config.base_url | safe }}/",
       "description": {{ config.description | json_encode | safe }},
       "inLanguage": "en",
@@ -84,7 +84,7 @@
     </div>
     {%- if section.extra.hero_code %}
     <div class="hero-code">
-      <div class="install"><code>cargo add iec61850-rs</code></div>
+      <div class="install"><code>cargo add iec61850-kit</code></div>
       {{ section.extra.hero_code | markdown | safe }}
     </div>
     {%- endif %}

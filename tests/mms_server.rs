@@ -10,10 +10,10 @@
 
 use std::time::Duration;
 
-use iec61850_rs::Fc;
-use iec61850_rs::client::Client;
-use iec61850_rs::proto::data::{Typed, Value};
-use iec61850_rs::server::{Ied, Server, ServerHandle};
+use iec61850_kit::Fc;
+use iec61850_kit::client::Client;
+use iec61850_kit::proto::data::{Typed, Value};
+use iec61850_kit::server::{Ied, Server, ServerHandle};
 
 /// A relay with one logical device: a mode, a measurement, a trip and a breaker.
 pub const RELAY: &str = include_str!("fixtures/relay.icd");
@@ -39,7 +39,7 @@ fn a_client_browses_the_namespace_the_scl_file_describes() {
     let (addr, _h) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
 
-    assert_eq!(c.identify().unwrap().model, "iec61850-rs");
+    assert_eq!(c.identify().unwrap().model, "iec61850-kit");
     assert_eq!(c.server_directory().unwrap(), ["IED1LD0"], "MMS domains are logical devices");
 
     let names = c.logical_device_directory("IED1LD0").unwrap();
@@ -69,7 +69,7 @@ fn a_read_and_a_write_go_through_the_model() {
 
     // A leaf, engineered in the file: the instance value wins over the type template.
     assert_eq!(c.read("IED1LD0/CSWI1.Pos.ctlModel", Fc::CF).unwrap().as_i64(), Some(1));
-    assert_eq!(c.read_control_model("IED1LD0/CSWI1.Pos").unwrap(), iec61850_rs::client::ControlModel::DirectNormal);
+    assert_eq!(c.read_control_model("IED1LD0/CSWI1.Pos").unwrap(), iec61850_kit::client::ControlModel::DirectNormal);
 
     // A structure is assembled from its components in model order.
     let mag = c.read("IED1LD0/MMXU1.TotW.mag", Fc::MX).unwrap();
@@ -82,10 +82,10 @@ fn a_read_and_a_write_go_through_the_model() {
     // Status information is **not** one of them (IEC 61850-7-2 §5.7): `ST` is what the
     // process reports, and a server that lets a client write it lets one fake a trip.
     assert!(
-        matches!(c.write("IED1LD0/PTRC1.Tr.general", Fc::ST, &Value::Boolean(true)), Err(iec61850_rs::Error::DataAccess(3))),
+        matches!(c.write("IED1LD0/PTRC1.Tr.general", Fc::ST, &Value::Boolean(true)), Err(iec61850_kit::Error::DataAccess(3))),
         "a client must not be able to write a status attribute"
     );
-    assert!(matches!(c.write("IED1LD0/MMXU1.TotW.mag.f", Fc::MX, &Value::Float32(1.0)), Err(iec61850_rs::Error::DataAccess(3))));
+    assert!(matches!(c.write("IED1LD0/MMXU1.TotW.mag.f", Fc::MX, &Value::Float32(1.0)), Err(iec61850_kit::Error::DataAccess(3))));
     // The application behind the server is the one that owns process data, and its update
     // is what a client sees.
     handle.txn().set("IED1LD0/PTRC1$ST$Tr$general", Value::Boolean(true)).commit();
@@ -94,9 +94,9 @@ fn a_read_and_a_write_go_through_the_model() {
     assert_eq!(c.read("IED1LD0/MMXU1.TotW.mag.f", Fc::MX).unwrap().as_f64(), Some(1234.5));
 
     // A name the model does not have is object-non-existent, not a guess.
-    assert!(matches!(c.read("IED1LD0/PTRC1.Tr.nosuch", Fc::ST), Err(iec61850_rs::Error::DataAccess(10))));
+    assert!(matches!(c.read("IED1LD0/PTRC1.Tr.nosuch", Fc::ST), Err(iec61850_kit::Error::DataAccess(10))));
     // …and a value of the wrong type is refused rather than quietly changing the model.
-    assert!(matches!(c.write("IED1LD0/CSWI1.Pos.ctlModel", Fc::CF, &Value::VisibleString("x".into())), Err(iec61850_rs::Error::DataAccess(7))));
+    assert!(matches!(c.write("IED1LD0/CSWI1.Pos.ctlModel", Fc::CF, &Value::VisibleString("x".into())), Err(iec61850_kit::Error::DataAccess(7))));
     c.release().unwrap();
 }
 
@@ -119,13 +119,13 @@ fn a_data_set_is_read_created_and_deleted() {
 
     // One the file engineered is matched and refused: the difference between gone and
     // refused is the whole answer.
-    assert!(matches!(c.delete_data_set("IED1LD0/LLN0$dsTrip"), Err(iec61850_rs::Error::DataAccess(3))));
+    assert!(matches!(c.delete_data_set("IED1LD0/LLN0$dsTrip"), Err(iec61850_kit::Error::DataAccess(3))));
     c.release().unwrap();
 }
 
 #[test]
 fn the_server_answers_what_type_a_variable_is() {
-    use iec61850_rs::client::TypeSpec;
+    use iec61850_kit::client::TypeSpec;
 
     let (addr, _h) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -142,7 +142,7 @@ fn the_server_answers_what_type_a_variable_is() {
 
 #[test]
 fn a_browse_that_does_not_fit_one_pdu_is_paged() {
-    use iec61850_rs::server::{AcsiConfig, ServerConfig};
+    use iec61850_kit::server::{AcsiConfig, ServerConfig};
 
     // A budget small enough to force several pages out of this model, so the paging is the
     // thing under test rather than an accident of the model's size.
@@ -191,7 +191,7 @@ fn two_clients_see_the_same_model() {
 
 #[test]
 fn a_report_control_block_is_enabled_and_reports_what_changed() {
-    use iec61850_rs::client::{RcbSettings, ReasonCode, TrgOps};
+    use iec61850_kit::client::{RcbSettings, ReasonCode, TrgOps};
 
     let (addr, handle) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -226,7 +226,7 @@ fn a_report_control_block_is_enabled_and_reports_what_changed() {
     // and a client that asked for one and not the other must get what it asked for.
     handle
         .txn()
-        .set("IED1LD0/PTRC1$ST$Tr$q", Value::quality(iec61850_rs::Quality { validity: iec61850_rs::Validity::Invalid, ..iec61850_rs::Quality::GOOD }))
+        .set("IED1LD0/PTRC1$ST$Tr$q", Value::quality(iec61850_kit::Quality { validity: iec61850_kit::Validity::Invalid, ..iec61850_kit::Quality::GOOD }))
         .commit();
     let r = c.next_report(Duration::from_secs(2)).expect("poll").expect("a second report");
     assert_eq!(r.entries.len(), 1);
@@ -246,7 +246,7 @@ fn a_report_control_block_is_enabled_and_reports_what_changed() {
 
 #[test]
 fn a_general_interrogation_reports_every_member_once() {
-    use iec61850_rs::client::{RcbSettings, ReasonCode, TrgOps};
+    use iec61850_kit::client::{RcbSettings, ReasonCode, TrgOps};
 
     let (addr, _h) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -266,7 +266,7 @@ fn a_general_interrogation_reports_every_member_once() {
 
 #[test]
 fn a_control_block_belongs_to_one_client_at_a_time() {
-    use iec61850_rs::client::{RcbSettings, TrgOps};
+    use iec61850_kit::client::{RcbSettings, TrgOps};
 
     let (addr, _h) = spawn(2);
     let mut a = Client::connect(&addr).expect("first");
@@ -276,7 +276,7 @@ fn a_control_block_belongs_to_one_client_at_a_time() {
     // The second client is refused rather than silently taking it over — two clients on one
     // block is how one of them stops receiving reports without being told.
     let e = b.enable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &RcbSettings::new()).unwrap_err();
-    assert!(matches!(e, iec61850_rs::Error::DataAccess(3)), "{e:?}");
+    assert!(matches!(e, iec61850_kit::Error::DataAccess(3)), "{e:?}");
 
     // And once the first client lets go, the second may have it.
     a.disable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP).unwrap();
@@ -287,7 +287,7 @@ fn a_control_block_belongs_to_one_client_at_a_time() {
 
 #[test]
 fn a_running_block_refuses_to_be_reconfigured() {
-    use iec61850_rs::client::{RcbSettings, TrgOps};
+    use iec61850_kit::client::{RcbSettings, TrgOps};
 
     // IEC 61850-7-2 §17.2: every setting but `RptEna`, `GI` and `PurgeBuf` is refused while
     // reporting is on. This is the rule the client's "settings first, `RptEna` last" ordering
@@ -295,7 +295,7 @@ fn a_running_block_refuses_to_be_reconfigured() {
     let (addr, _h) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
     c.enable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &RcbSettings::new().with_trg_ops(TrgOps::EVENTS)).expect("enable");
-    assert!(matches!(c.write_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &RcbSettings::new().with_buf_tm(50)), Err(iec61850_rs::Error::DataAccess(3))));
+    assert!(matches!(c.write_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &RcbSettings::new().with_buf_tm(50)), Err(iec61850_kit::Error::DataAccess(3))));
 
     // Enabling it again through the client works, because the client turns it off first.
     let again = c.enable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &RcbSettings::new().with_buf_tm(50).with_trg_ops(TrgOps::EVENTS)).expect("take it over");
@@ -305,7 +305,7 @@ fn a_running_block_refuses_to_be_reconfigured() {
 
 #[test]
 fn a_gathering_window_puts_one_report_where_three_changes_happened() {
-    use iec61850_rs::client::{RcbSettings, TrgOps};
+    use iec61850_kit::client::{RcbSettings, TrgOps};
 
     let (addr, handle) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -315,7 +315,7 @@ fn a_gathering_window_puts_one_report_where_three_changes_happened() {
 
     let mut txn = handle.txn();
     txn.set("IED1LD0/PTRC1$ST$Tr$general", Value::Boolean(true));
-    txn.set("IED1LD0/PTRC1$ST$Tr$q", Value::quality(iec61850_rs::Quality { validity: iec61850_rs::Validity::Questionable, ..iec61850_rs::Quality::GOOD }));
+    txn.set("IED1LD0/PTRC1$ST$Tr$q", Value::quality(iec61850_kit::Quality { validity: iec61850_kit::Validity::Questionable, ..iec61850_kit::Quality::GOOD }));
     txn.commit();
 
     let r = c.next_report(Duration::from_secs(2)).expect("poll").expect("one report");
@@ -326,7 +326,7 @@ fn a_gathering_window_puts_one_report_where_three_changes_happened() {
 
 #[test]
 fn a_buffered_block_keeps_what_happened_while_nobody_was_listening() {
-    use iec61850_rs::client::{RcbSettings, TrgOps};
+    use iec61850_kit::client::{RcbSettings, TrgOps};
 
     // The whole difference between `BR` and `RP`: a buffered block holds its entries for the
     // client that is not there, and hands them over when it comes back.
@@ -411,8 +411,8 @@ fn a_buffered_block_keeps_what_happened_while_nobody_was_listening() {
 
 #[test]
 fn a_direct_control_operates_the_object_it_names() {
-    use iec61850_rs::client::{ControlModel, OriginCategory};
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::{ControlModel, OriginCategory};
+    use iec61850_kit::proto::data::Dbpos;
 
     let (addr, handle) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -441,7 +441,7 @@ fn sbo_relay() -> String {
 }
 
 /// Every report the client has waiting, plus any that arrives within a short grace period.
-fn drain_reports(c: &mut Client) -> Vec<iec61850_rs::client::Report> {
+fn drain_reports(c: &mut Client) -> Vec<iec61850_kit::client::Report> {
     let mut out = Vec::new();
     while let Ok(Some(r)) = c.next_report(Duration::from_millis(200)) {
         out.push(r);
@@ -467,8 +467,8 @@ fn spawn_xml(xml: &str, clients: usize) -> (String, ServerHandle) {
 
 #[test]
 fn select_before_operate_with_enhanced_security_runs_the_whole_sequence() {
-    use iec61850_rs::client::{ControlModel, OriginCategory};
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::{ControlModel, OriginCategory};
+    use iec61850_kit::proto::data::Dbpos;
 
     let (addr, handle) = spawn_xml(&sbo_relay(), 1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -497,7 +497,7 @@ fn select_before_operate_with_enhanced_security_runs_the_whole_sequence() {
 /// rather than keep the one the reference carries.
 #[test]
 fn a_control_model_nobody_stated_is_read_off_the_server() {
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::proto::data::Dbpos;
 
     let (addr, handle) = spawn_xml(&sbo_relay(), 1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -514,8 +514,8 @@ fn a_control_model_nobody_stated_is_read_off_the_server() {
 
 #[test]
 fn an_operate_without_a_select_is_refused_with_a_reason() {
-    use iec61850_rs::client::{AddCause, ControlModel};
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::{AddCause, ControlModel};
+    use iec61850_kit::proto::data::Dbpos;
 
     let (addr, handle) = spawn_xml(&sbo_relay(), 1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -523,7 +523,7 @@ fn an_operate_without_a_select_is_refused_with_a_reason() {
     // Operating a select-before-operate object without selecting it first is the classic
     // "nothing happened and nothing said so". The server says which.
     let e = c.control("IED1LD0/CSWI1.Pos").model(ControlModel::DirectEnhanced).execute(&Value::dbpos(Dbpos::On)).unwrap_err();
-    assert!(matches!(e, iec61850_rs::Error::ControlRejected { add_cause } if AddCause::from_code(add_cause) == AddCause::ObjectNotSelected), "{e:?}");
+    assert!(matches!(e, iec61850_kit::Error::ControlRejected { add_cause } if AddCause::from_code(add_cause) == AddCause::ObjectNotSelected), "{e:?}");
     // And the breaker did not move.
     assert_eq!(handle.read("IED1LD0/CSWI1$ST$Pos$stVal").and_then(|v| v.as_dbpos()), Some(Dbpos::Intermediate));
     c.release().unwrap();
@@ -531,8 +531,8 @@ fn an_operate_without_a_select_is_refused_with_a_reason() {
 
 #[test]
 fn a_selection_belongs_to_the_client_that_made_it() {
-    use iec61850_rs::client::ControlModel;
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::ControlModel;
+    use iec61850_kit::proto::data::Dbpos;
 
     let (addr, _h) = spawn_xml(&sbo_relay(), 2);
     let mut a = Client::connect(&addr).expect("first");
@@ -543,16 +543,16 @@ fn a_selection_belongs_to_the_client_that_made_it() {
     // The second cannot select it — the object is already selected, and the server says so
     // rather than letting two clients believe they each hold the breaker.
     let e = b.control("IED1LD0/CSWI1.Pos").model(ControlModel::SboEnhanced).select_with_value(&Value::dbpos(Dbpos::On)).unwrap_err();
-    assert!(matches!(e, iec61850_rs::Error::ControlRejected { .. } | iec61850_rs::Error::DataAccess(_)), "{e:?}");
+    assert!(matches!(e, iec61850_kit::Error::ControlRejected { .. } | iec61850_kit::Error::DataAccess(_)), "{e:?}");
     a.release().unwrap();
     b.release().unwrap();
 }
 
 #[test]
 fn an_application_hook_refuses_with_the_cause_it_chooses() {
-    use iec61850_rs::client::{AddCause, ControlModel};
-    use iec61850_rs::proto::data::Dbpos;
-    use iec61850_rs::server::{AcsiConfig, ServerConfig, Stage};
+    use iec61850_kit::client::{AddCause, ControlModel};
+    use iec61850_kit::proto::data::Dbpos;
+    use iec61850_kit::server::{AcsiConfig, ServerConfig, Stage};
 
     // The hook is where a device says "the interlocking says no". Without one every command
     // is accepted, which is what a simulator wants and a relay does not.
@@ -566,7 +566,7 @@ fn an_application_hook_refuses_with_the_cause_it_chooses() {
 
     let mut c = Client::connect(&addr).expect("associate");
     let e = c.control("IED1LD0/CSWI1.Pos").model(ControlModel::DirectNormal).execute(&Value::dbpos(Dbpos::On)).unwrap_err();
-    assert!(matches!(e, iec61850_rs::Error::ControlRejected { add_cause } if AddCause::from_code(add_cause) == AddCause::BlockedByInterlocking), "{e:?}");
+    assert!(matches!(e, iec61850_kit::Error::ControlRejected { add_cause } if AddCause::from_code(add_cause) == AddCause::BlockedByInterlocking), "{e:?}");
     assert_eq!(handle.read("IED1LD0/CSWI1$ST$Pos$stVal").and_then(|v| v.as_dbpos()), Some(Dbpos::Intermediate), "and the breaker did not move");
     c.release().unwrap();
 }
@@ -574,11 +574,11 @@ fn an_application_hook_refuses_with_the_cause_it_chooses() {
 /// A refusal's `AddCause` goes out as the hook gave it, whatever edition is served.
 #[test]
 fn a_refusal_carries_its_add_cause_unmapped_at_every_edition() {
-    use iec61850_rs::client::{AddCause, ControlModel};
-    use iec61850_rs::common::Edition;
-    use iec61850_rs::model::IedModel;
-    use iec61850_rs::proto::data::Dbpos;
-    use iec61850_rs::server::Stage;
+    use iec61850_kit::client::{AddCause, ControlModel};
+    use iec61850_kit::common::Edition;
+    use iec61850_kit::model::IedModel;
+    use iec61850_kit::proto::data::Dbpos;
+    use iec61850_kit::server::Stage;
 
     fn refused(edition: Edition, hook_cause: AddCause) -> AddCause {
         let ied = Ied::with_edition(IedModel::from_scl(RELAY, Some("IED1")).expect("model"), edition).expect("ied");
@@ -590,7 +590,7 @@ fn a_refusal_carries_its_add_cause_unmapped_at_every_edition() {
         let e = c.control("IED1LD0/CSWI1.Pos").model(ControlModel::DirectNormal).execute(&Value::dbpos(Dbpos::On)).unwrap_err();
         c.release().unwrap();
         match e {
-            iec61850_rs::Error::ControlRejected { add_cause } => AddCause::from_code(add_cause),
+            iec61850_kit::Error::ControlRejected { add_cause } => AddCause::from_code(add_cause),
             other => panic!("expected a refusal, got {other:?}"),
         }
     }
@@ -608,8 +608,8 @@ fn a_refusal_carries_its_add_cause_unmapped_at_every_edition() {
 /// `resource [3]`, `service [4]`, `access [7]`, `file [11]` (Wireshark's `mms.asn`).
 #[test]
 fn service_error_classes_are_the_iso_9506_tags() {
-    use iec61850_rs::common::service_error_class;
-    use iec61850_rs::server::error_class;
+    use iec61850_kit::common::service_error_class;
+    use iec61850_kit::server::error_class;
     for (class, name) in [
         (error_class::DEFINITION, "definition"),
         (error_class::RESOURCE, "resource"),
@@ -619,7 +619,7 @@ fn service_error_classes_are_the_iso_9506_tags() {
     ] {
         assert_eq!(service_error_class(class), Some(name));
     }
-    let shown = iec61850_rs::Error::Service { class: 2, code: 0 }.to_string();
+    let shown = iec61850_kit::Error::Service { class: 2, code: 0 }.to_string();
     assert!(shown.contains("definition"), "{shown}");
 }
 
@@ -673,12 +673,12 @@ fn setting_groups_activate_edit_and_confirm() {
 
     // A setting under `SG` is what is in force: it changes by activating a group, never by
     // writing a value into it.
-    assert!(matches!(c.write("IED1LD0/PTOC1.StrVal.setMag.f", Fc::SG, &Value::Float32(9.0)), Err(iec61850_rs::Error::DataAccess(3))));
+    assert!(matches!(c.write("IED1LD0/PTOC1.StrVal.setMag.f", Fc::SG, &Value::Float32(9.0)), Err(iec61850_kit::Error::DataAccess(3))));
     // And an edit with no group selected has nowhere to go — nor is there anything to read:
     // with `EditSG = 0` there is no edit copy, and answering with the scratch the model was
     // seeded with would tell a client it is looking at a setting group when it is not.
-    assert!(matches!(c.write_edit_setting("IED1LD0/PTOC1.StrVal.setMag.f", &Value::Float32(9.0)), Err(iec61850_rs::Error::DataAccess(3))));
-    assert!(matches!(c.read_edit_setting("IED1LD0/PTOC1.StrVal.setMag.f"), Err(iec61850_rs::Error::DataAccess(3))));
+    assert!(matches!(c.write_edit_setting("IED1LD0/PTOC1.StrVal.setMag.f", &Value::Float32(9.0)), Err(iec61850_kit::Error::DataAccess(3))));
+    assert!(matches!(c.read_edit_setting("IED1LD0/PTOC1.StrVal.setMag.f"), Err(iec61850_kit::Error::DataAccess(3))));
 
     // With a group selected, the edit copy reads back what that group currently holds — so a
     // client that changes one setting does not blank the rest when it confirms.
@@ -753,7 +753,7 @@ fn an_edit_reservation_belongs_to_one_client() {
 
 #[test]
 fn a_file_is_listed_and_read_off_the_server_and_the_sandbox_holds() {
-    use iec61850_rs::server::DirectoryStore;
+    use iec61850_kit::server::DirectoryStore;
 
     // A directory with one record in it, and a file next to the root a traversal would want.
     let dir = std::env::temp_dir().join(format!("iec61850-srv-files-{}", std::process::id()));
@@ -799,7 +799,7 @@ fn a_file_is_listed_and_read_off_the_server_and_the_sandbox_holds() {
 
 #[test]
 fn a_log_records_what_changed_and_is_read_back_by_time_and_after_an_entry() {
-    use iec61850_rs::common::EntryTime;
+    use iec61850_kit::common::EntryTime;
 
     let (addr, handle) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -850,11 +850,11 @@ fn a_log_records_what_changed_and_is_read_back_by_time_and_after_an_entry() {
 /// `alternateAccess`, and a server that ignores one answers with the whole array — a different
 /// answer to a different question, with nothing on the wire to say the question had changed.
 mod arrays {
-    use iec61850_rs::Fc;
-    use iec61850_rs::client::{Client, RcbSettings, TrgOps};
-    use iec61850_rs::proto::data::{Typed, Value};
-    use iec61850_rs::proto::mms::typespec::TypeSpec;
-    use iec61850_rs::server::{Ied, Server, ServerHandle};
+    use iec61850_kit::Fc;
+    use iec61850_kit::client::{Client, RcbSettings, TrgOps};
+    use iec61850_kit::proto::data::{Typed, Value};
+    use iec61850_kit::proto::mms::typespec::TypeSpec;
+    use iec61850_kit::server::{Ied, Server, ServerHandle};
     use std::time::Duration;
 
     const ARRAY: &str = include_str!("fixtures/array.icd");
@@ -984,11 +984,11 @@ mod arrays {
 mod service_tracking {
     use std::time::Duration;
 
-    use iec61850_rs::Fc;
-    use iec61850_rs::client::{Client, RcbSettings, TrgOps};
-    use iec61850_rs::common::{EntryTime, ServiceError, ServiceType};
-    use iec61850_rs::proto::data::{Dbpos, Typed, Value};
-    use iec61850_rs::server::{Ied, Server, ServerHandle};
+    use iec61850_kit::Fc;
+    use iec61850_kit::client::{Client, RcbSettings, TrgOps};
+    use iec61850_kit::common::{EntryTime, ServiceError, ServiceType};
+    use iec61850_kit::proto::data::{Dbpos, Typed, Value};
+    use iec61850_kit::server::{Ied, Server, ServerHandle};
 
     const TRACKING: &str = include_str!("fixtures/tracking.icd");
 
@@ -1215,10 +1215,10 @@ mod service_tracking {
 /// The GOOSE and sampled-value control blocks a server publishes, and the one thing that makes
 /// them two blocks rather than one.
 mod publisher_control_blocks {
-    use iec61850_rs::Fc;
-    use iec61850_rs::client::Client;
-    use iec61850_rs::proto::data::{Typed, Value};
-    use iec61850_rs::server::{Ied, Server};
+    use iec61850_kit::Fc;
+    use iec61850_kit::client::Client;
+    use iec61850_kit::proto::data::{Typed, Value};
+    use iec61850_kit::server::{Ied, Server};
 
     /// One GOOSE block, one multicast SV stream and one **unicast** one — the last is the
     /// shape a server that publishes everything under `MS` gets wrong.
@@ -1286,7 +1286,7 @@ mod publisher_control_blocks {
         // (11), not `object-access-denied` (3), because this server cannot publish a unicast
         // stream — saying so beats accepting the enable and sending nothing.
         let enable = c.write("IED1LD0/LLN0$US$usvMU$SvEna", Fc::US, &Value::Boolean(true));
-        assert!(matches!(enable, Err(iec61850_rs::Error::DataAccess(11))), "{enable:?}");
+        assert!(matches!(enable, Err(iec61850_kit::Error::DataAccess(11))), "{enable:?}");
         assert!(c.write("IED1LD0/LLN0$US$usvMU$SmpRate", Fc::US, &Value::Unsigned(96)).is_err(), "SmpRate is not");
         c.release().unwrap();
     }
@@ -1295,7 +1295,7 @@ mod publisher_control_blocks {
 /// A link that drops and comes back, and the state that deliberately does not come back with it.
 #[test]
 fn a_client_reconnects_and_restores_nothing_behind_your_back() {
-    use iec61850_rs::client::{Backoff, RcbSettings, TrgOps};
+    use iec61850_kit::client::{Backoff, RcbSettings, TrgOps};
 
     let (addr, handle) = spawn(2);
     let mut c = Client::connect(&addr).expect("associate");
@@ -1339,8 +1339,8 @@ fn the_vmd_answers_for_itself() {
     // layers are up — which is exactly why a supervision loop asks it and nothing else.
     let status = c.status(false).expect("status");
     assert!(status.is_healthy());
-    assert_eq!(status.logical, iec61850_rs::proto::mms::vmd_logical::STATE_CHANGES_ALLOWED);
-    assert_eq!(status.physical, iec61850_rs::proto::mms::vmd_physical::OPERATIONAL);
+    assert_eq!(status.logical, iec61850_kit::proto::mms::vmd_logical::STATE_CHANGES_ALLOWED);
+    assert_eq!(status.physical, iec61850_kit::proto::mms::vmd_physical::OPERATIONAL);
     // `extendedDerivation` asks for a fresh derivation; this server has nothing cached, so
     // the answer is the same one and the flag costs a client nothing to set.
     assert_eq!(c.status(true).expect("extended status"), status);
@@ -1357,9 +1357,9 @@ fn the_vmd_answers_for_itself() {
 /// reply that was never coming.
 #[test]
 fn a_cancel_for_a_finished_request_is_refused_rather_than_swallowed() {
-    use iec61850_rs::common::{Instant, Limits};
-    use iec61850_rs::proto::mms::association::{Association, AssociationConfig};
-    use iec61850_rs::proto::mms::{Mms, ServiceError, service_error};
+    use iec61850_kit::common::{Instant, Limits};
+    use iec61850_kit::proto::mms::association::{Association, AssociationConfig};
+    use iec61850_kit::proto::mms::{Mms, ServiceError, service_error};
 
     // Sans-IO, both roles, no socket: the association is its own test peer.
     let mut client = Association::client(AssociationConfig::default());
@@ -1379,7 +1379,7 @@ fn a_cancel_for_a_finished_request_is_refused_rather_than_swallowed() {
     }
     assert!(client.is_established() && server.is_established());
 
-    let invoke = client.call(now, &iec61850_rs::proto::mms::ConfirmedRequest::Identify).expect("call");
+    let invoke = client.call(now, &iec61850_kit::proto::mms::ConfirmedRequest::Identify).expect("call");
     client.cancel(invoke).expect("cancel an outstanding request");
     // Cancelling something that was never asked for is a caller error, not a PDU.
     assert!(client.cancel(invoke + 1).is_err());
@@ -1401,7 +1401,7 @@ fn a_cancel_for_a_finished_request_is_refused_rather_than_swallowed() {
 
     let mut refused = false;
     while let Some(e) = client.poll_event() {
-        if let iec61850_rs::proto::mms::association::AssociationEvent::CancelRefused { invoke_id } = e {
+        if let iec61850_kit::proto::mms::association::AssociationEvent::CancelRefused { invoke_id } = e {
             assert_eq!(invoke_id, invoke);
             refused = true;
         }
@@ -1410,8 +1410,8 @@ fn a_cancel_for_a_finished_request_is_refused_rather_than_swallowed() {
 
     // And the refusal says *why*, in the ISO 9506 class the sequencing fault belongs to.
     let encoded =
-        ServiceError::encode(iec61850_rs::ber::Tag::context_constructed(1), service_error::SERVICE, service_error::PRIMITIVES_OUT_OF_SEQUENCE).unwrap();
-    let tlv = iec61850_rs::ber::Cursor::new(&encoded).next_required().unwrap();
+        ServiceError::encode(iec61850_kit::ber::Tag::context_constructed(1), service_error::SERVICE, service_error::PRIMITIVES_OUT_OF_SEQUENCE).unwrap();
+    let tlv = iec61850_kit::ber::Cursor::new(&encoded).next_required().unwrap();
     let round = Mms::CancelError { invoke_id: invoke, error: tlv }.to_vec().unwrap();
     match Mms::parse(&round, &Limits::DEFAULT).unwrap() {
         Mms::CancelError { invoke_id, error } => {
@@ -1433,10 +1433,10 @@ fn a_cancel_for_a_finished_request_is_refused_rather_than_swallowed() {
 mod functionally_constrained_data {
     use std::time::Duration;
 
-    use iec61850_rs::Fc;
-    use iec61850_rs::client::{Client, ClientConfig, RcbSettings, TrgOps};
-    use iec61850_rs::proto::data::Value;
-    use iec61850_rs::server::{Ied, Server, ServerHandle};
+    use iec61850_kit::Fc;
+    use iec61850_kit::client::{Client, ClientConfig, RcbSettings, TrgOps};
+    use iec61850_kit::proto::data::Value;
+    use iec61850_kit::server::{Ied, Server, ServerHandle};
 
     const FCD: &str = include_str!("fixtures/fcd.icd");
 
@@ -1488,7 +1488,7 @@ mod functionally_constrained_data {
         handle
             .txn()
             .set("IED1LD0/PTRC1$ST$Tr$general", Value::Boolean(false))
-            .set("IED1LD0/PTRC1$ST$Tr$q", Value::quality(iec61850_rs::Quality { validity: iec61850_rs::Validity::Invalid, ..iec61850_rs::Quality::GOOD }))
+            .set("IED1LD0/PTRC1$ST$Tr$q", Value::quality(iec61850_kit::Quality { validity: iec61850_kit::Validity::Invalid, ..iec61850_kit::Quality::GOOD }))
             .commit();
         let r = c.next_report(Duration::from_secs(2)).expect("poll").expect("a second report");
         assert_eq!(r.entries.len(), 1);
@@ -1560,11 +1560,11 @@ mod functionally_constrained_data {
 /// The three things a report gets wrong when the engine is driven by the wrong clock, under
 /// the wrong name, or with a blunt instrument for its own bookkeeping. All three were real.
 mod report_engine {
-    use iec61850_rs::client::Unsolicited;
-    use iec61850_rs::common::{EntryTime, Instant, Limits};
-    use iec61850_rs::proto::data::Value;
-    use iec61850_rs::proto::mms::{Mms, ObjectName, Unconfirmed, VariableAccess};
-    use iec61850_rs::server::{Engine, Ied};
+    use iec61850_kit::client::Unsolicited;
+    use iec61850_kit::common::{EntryTime, Instant, Limits};
+    use iec61850_kit::proto::data::Value;
+    use iec61850_kit::proto::mms::{Mms, ObjectName, Unconfirmed, VariableAccess};
+    use iec61850_kit::server::{Engine, Ied};
 
     const BLOCK: &str = "IED1LD0/LLN0$RP$urcb";
     const MEMBER: &str = "IED1LD0/PTRC1$ST$Tr$general";
@@ -1587,7 +1587,7 @@ mod report_engine {
     /// validator about what the file means.
     #[test]
     fn an_integrity_period_without_its_trigger_reports_nothing() {
-        use iec61850_rs::common::TrgOps;
+        use iec61850_kit::common::TrgOps;
 
         for (integrity, expected) in [(false, 0usize), (true, 1)] {
             let mut ied = Ied::from_scl(super::RELAY, Some("IED1")).expect("load the model");
@@ -1684,10 +1684,10 @@ mod report_engine {
 
 /// Controls: the timestamp a command writes, and the command that runs later.
 mod controls {
-    use iec61850_rs::common::{Clock, Instant, Now, TimeQuality, UtcTime};
-    use iec61850_rs::proto::data::{Dbpos, Typed, Value};
-    use iec61850_rs::proto::mms::control::ControlRequest;
-    use iec61850_rs::server::{Controls, Ied};
+    use iec61850_kit::common::{Clock, Instant, Now, TimeQuality, UtcTime};
+    use iec61850_kit::proto::data::{Dbpos, Typed, Value};
+    use iec61850_kit::proto::mms::control::ControlRequest;
+    use iec61850_kit::server::{Controls, Ied};
 
     const OBJECT: &str = "IED1LD0/CSWI1$CO$Pos";
     const STATUS_T: &str = "IED1LD0/CSWI1$ST$Pos$t";
@@ -1786,18 +1786,18 @@ mod controls {
     /// The clock is pluggable, which is what lets the tests above pin a date at all.
     #[test]
     fn the_system_clock_reports_a_plausible_date() {
-        let now = iec61850_rs::common::SystemClock.now();
+        let now = iec61850_kit::common::SystemClock.now();
         assert!(now.seconds > 1_700_000_000, "the system clock is a wall clock: {now}");
     }
 }
 
 /// What the server answers when there is no service to answer for.
 mod rejects {
-    use iec61850_rs::ber::Cursor;
-    use iec61850_rs::common::{Instant, Limits};
-    use iec61850_rs::proto::mms::reject::{INVALID_PDU, RejectReason, UNRECOGNIZED_SERVICE};
-    use iec61850_rs::proto::mms::{ConfirmedRequest, Mms};
-    use iec61850_rs::server::{Acsi, Answer, Ied};
+    use iec61850_kit::ber::Cursor;
+    use iec61850_kit::common::{Instant, Limits};
+    use iec61850_kit::proto::mms::reject::{INVALID_PDU, RejectReason, UNRECOGNIZED_SERVICE};
+    use iec61850_kit::proto::mms::{ConfirmedRequest, Mms};
+    use iec61850_kit::server::{Acsi, Answer, Ied};
 
     /// ISO 9506 answers an unrecognised *service* with a reject-PDU, not a confirmed-error:
     /// a confirmed-error says "this service failed", and there was no service. libiec61850's
@@ -1837,9 +1837,9 @@ mod rejects {
 
 /// Edition is a property of the server, and the server's edition is what its file declares.
 mod editions {
-    use iec61850_rs::common::Edition;
-    use iec61850_rs::model::IedModel;
-    use iec61850_rs::server::Ied;
+    use iec61850_kit::common::Edition;
+    use iec61850_kit::model::IedModel;
+    use iec61850_kit::server::Ied;
 
     fn components(ied: &Ied, block: &str) -> Vec<String> {
         ied.node_at(block).map(|n| n.children.iter().map(|c| c.name.clone()).collect()).unwrap_or_default()
@@ -1927,18 +1927,18 @@ fn a_control_block_counter_is_not_a_client_s_to_write() {
     c.write("IED1LD0/LLN0$RP$urcb$BufTm", Fc::RP, &Value::Unsigned(50)).expect("BufTm is a setting");
     // `GI` is a service performed *on a running block*, so it is refused while nobody has
     // enabled it — there would be nowhere to send the report.
-    assert!(matches!(c.write("IED1LD0/LLN0$RP$urcb$GI", Fc::RP, &Value::Boolean(true)), Err(iec61850_rs::Error::DataAccess(3))));
-    c.enable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &iec61850_rs::client::RcbSettings::new()).expect("enable");
+    assert!(matches!(c.write("IED1LD0/LLN0$RP$urcb$GI", Fc::RP, &Value::Boolean(true)), Err(iec61850_kit::Error::DataAccess(3))));
+    c.enable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &iec61850_kit::client::RcbSettings::new()).expect("enable");
     c.write("IED1LD0/LLN0$RP$urcb$GI", Fc::RP, &Value::Boolean(true)).expect("GI on a block this client holds");
     c.disable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP).expect("disable");
 
     for owned in ["SqNum", "ConfRev", "Owner"] {
         let reference = format!("IED1LD0/LLN0$RP$urcb${owned}");
         let result = c.write(&reference, Fc::RP, &Value::Unsigned(9));
-        assert!(matches!(result, Err(iec61850_rs::Error::DataAccess(3 | 7))), "{owned} must not be writable, got {result:?}");
+        assert!(matches!(result, Err(iec61850_kit::Error::DataAccess(3 | 7))), "{owned} must not be writable, got {result:?}");
     }
     // The same for a log control block: `NewEnt` is what the log has, not what a client says.
-    assert!(matches!(c.write("IED1LD0/LLN0$LG$lcb01$NewEnt", Fc::LG, &Value::OctetString(vec![0; 8])), Err(iec61850_rs::Error::DataAccess(3))));
+    assert!(matches!(c.write("IED1LD0/LLN0$LG$lcb01$NewEnt", Fc::LG, &Value::OctetString(vec![0; 8])), Err(iec61850_kit::Error::DataAccess(3))));
     c.write("IED1LD0/LLN0$LG$lcb01$LogEna", Fc::LG, &Value::Boolean(true)).expect("LogEna is a setting");
     c.release().unwrap();
 }
@@ -1952,7 +1952,7 @@ fn a_report_control_block_names_the_client_that_holds_it() {
     // Before anybody enables it, nobody owns it.
     assert_eq!(c.read("IED1LD0/LLN0$RP$urcb$Owner", Fc::RP).unwrap(), Value::OctetString(Vec::new()));
 
-    c.enable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &iec61850_rs::client::RcbSettings::new()).expect("enable");
+    c.enable_rcb("IED1LD0/LLN0$RP$urcb", Fc::RP, &iec61850_kit::client::RcbSettings::new()).expect("enable");
     let owner = c.read("IED1LD0/LLN0$RP$urcb$Owner", Fc::RP).unwrap();
     // The loopback client's address, as the transport reports it.
     assert_eq!(owner, Value::OctetString(vec![127, 0, 0, 1]), "Owner is the holder's network address");
@@ -1970,8 +1970,8 @@ fn a_report_control_block_names_the_client_that_holds_it() {
 /// (IEC 61850-7-2 §20, 7-4 `Beh`).
 #[test]
 fn a_command_is_refused_when_the_logical_node_is_not_in_a_mode_that_takes_it() {
-    use iec61850_rs::client::AddCause;
-    use iec61850_rs::proto::data::Dbpos;
+    use iec61850_kit::client::AddCause;
+    use iec61850_kit::proto::data::Dbpos;
 
     // The breaker's logical node gets a `Beh` the test can move.
     let xml = RELAY.replace(
@@ -1988,7 +1988,7 @@ fn a_command_is_refused_when_the_logical_node_is_not_in_a_mode_that_takes_it() {
     // `test`: the ordinary command is refused and the test one is not.
     handle.txn().set("IED1LD0/CSWI1$ST$Beh$stVal", Value::Integer(3)).commit();
     let refused = c.control("IED1LD0/CSWI1.Pos").execute(&Value::dbpos(Dbpos::Off));
-    assert!(matches!(refused, Err(iec61850_rs::Error::ControlRejected { add_cause }) if add_cause == AddCause::BlockedByMode.to_code()), "{refused:?}");
+    assert!(matches!(refused, Err(iec61850_kit::Error::ControlRejected { add_cause }) if add_cause == AddCause::BlockedByMode.to_code()), "{refused:?}");
     assert_eq!(handle.read("IED1LD0/CSWI1$ST$Pos$stVal").and_then(|v| v.as_dbpos()), Some(Dbpos::On), "nothing moved");
     c.control("IED1LD0/CSWI1.Pos").test(true).execute(&Value::dbpos(Dbpos::Off)).expect("a test command in test mode");
 
@@ -2028,7 +2028,7 @@ fn a_goose_control_block_is_served_from_the_file_that_configures_it() {
 
     // Only the enable flag is a client's to write.
     c.write("IED1LD0/LLN0$GO$gcbTrip$GoEna", Fc::GO, &Value::Boolean(true)).expect("GoEna");
-    assert!(matches!(c.write("IED1LD0/LLN0$GO$gcbTrip$ConfRev", Fc::GO, &Value::Unsigned(9)), Err(iec61850_rs::Error::DataAccess(3))));
+    assert!(matches!(c.write("IED1LD0/LLN0$GO$gcbTrip$ConfRev", Fc::GO, &Value::Unsigned(9)), Err(iec61850_kit::Error::DataAccess(3))));
     c.release().unwrap();
 }
 
@@ -2036,7 +2036,7 @@ fn a_goose_control_block_is_served_from_the_file_that_configures_it() {
 /// for and what turns a list of values into a sequence of events.
 #[test]
 fn a_log_entry_carries_the_reason_it_was_made() {
-    use iec61850_rs::common::EntryTime;
+    use iec61850_kit::common::EntryTime;
 
     let (addr, handle) = spawn(1);
     let mut c = Client::connect(&addr).expect("associate");
@@ -2045,7 +2045,7 @@ fn a_log_entry_carries_the_reason_it_was_made() {
     let page = c.query_log_by_time("IED1LD0/LLN0$GeneralLog", EntryTime::default(), None).expect("query");
     assert_eq!(page.entries.len(), 1);
     let entry = &page.entries[0];
-    assert!(entry.reason.is_some_and(iec61850_rs::client::ReasonCode::data_change), "the change that made it, {:?}", entry.reason);
+    assert!(entry.reason.is_some_and(iec61850_kit::client::ReasonCode::data_change), "the change that made it, {:?}", entry.reason);
     assert_eq!(entry.variables.len(), 1, "the reason is not one of the variables");
     assert_eq!(entry.variables[0].0, "IED1LD0/PTRC1$ST$Tr$general");
     c.release().unwrap();
@@ -2060,10 +2060,10 @@ fn a_log_entry_carries_the_reason_it_was_made() {
 /// after which it is an ordinary part of the model that a client reads and a report carries.
 #[test]
 fn a_goose_subscription_is_supervised_by_the_lgos_the_file_declares() {
-    use iec61850_rs::common::{Instant, TimeQuality, UtcTime};
-    use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
-    use iec61850_rs::proto::goose::{GoosePdu, Subscriber, SubscriberConfig, SubscriptionKey};
-    use iec61850_rs::server::SubscriptionStatus;
+    use iec61850_kit::common::{Instant, TimeQuality, UtcTime};
+    use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
+    use iec61850_kit::proto::goose::{GoosePdu, Subscriber, SubscriberConfig, SubscriptionKey};
+    use iec61850_kit::server::SubscriptionStatus;
 
     const SUPERVISION: &str = include_str!("fixtures/supervision.icd");
     const LGOS: &str = "IED2LD0/LGOS1";
@@ -2100,7 +2100,7 @@ fn a_goose_subscription_is_supervised_by_the_lgos_the_file_declares() {
     let mut sub = Subscriber::new(SubscriberConfig::new(SubscriptionKey { dst: MacAddr::GOOSE_BASE, appid: 1, gocb_ref: GOCB.into() }).with_conf_rev(3));
 
     // A report on the supervision data set, so the LGOS is not just readable but *reported*.
-    let settings = iec61850_rs::client::RcbSettings::new().with_useful_fields();
+    let settings = iec61850_kit::client::RcbSettings::new().with_useful_fields();
     c.enable_rcb("IED2LD0/LLN0$RP$urcbSup", Fc::RP, &settings).expect("enable");
 
     // The stream comes up.
@@ -2147,7 +2147,7 @@ fn a_goose_subscription_is_supervised_by_the_lgos_the_file_declares() {
     // Which LGOS supervises which subscription is **engineering**, so it comes out of the
     // file too: an application wires a subscriber to its supervision node without typing
     // either name a second time.
-    let model = iec61850_rs::model::IedModel::from_scl(SUPERVISION, None).expect("model");
+    let model = iec61850_kit::model::IedModel::from_scl(SUPERVISION, None).expect("model");
     let nodes = model.supervision();
     assert_eq!(nodes.len(), 2, "one LGOS and one LSVS: {nodes:#?}");
     let lgos = nodes.iter().find(|n| n.is_goose()).expect("the LGOS");
@@ -2176,8 +2176,8 @@ fn a_goose_subscription_is_supervised_by_the_lgos_the_file_declares() {
 fn a_log_is_served_out_of_whatever_store_the_application_supplies() {
     use std::sync::{Arc, Mutex};
 
-    use iec61850_rs::common::EntryTime;
-    use iec61850_rs::server::{Entry, LogBounds, LogError, LogPage, LogStore, MemoryLog, NewEntry};
+    use iec61850_kit::common::EntryTime;
+    use iec61850_kit::server::{Entry, LogBounds, LogError, LogPage, LogStore, MemoryLog, NewEntry};
 
     /// A store that keeps everything and counts what it was asked, so the test can see that
     /// the engine really does go through it rather than round it.
@@ -2282,12 +2282,12 @@ mod set_file {
     use std::path::{Path, PathBuf};
     use std::time::{Duration, Instant as StdInstant};
 
-    use iec61850_rs::Error;
-    use iec61850_rs::client::{Client, ClientConfig};
-    use iec61850_rs::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
-    use iec61850_rs::proto::mms::file::{FileAttributes, FileNameBuf};
-    use iec61850_rs::proto::mms::{ConfirmedRequest, ConfirmedResponse, Mms, file_error};
-    use iec61850_rs::server::{AcsiConfig, DirectoryStore, FileWritePolicy, Ied, Server, ServerConfig};
+    use iec61850_kit::Error;
+    use iec61850_kit::client::{Client, ClientConfig};
+    use iec61850_kit::proto::mms::association::{Association, AssociationConfig, AssociationEvent};
+    use iec61850_kit::proto::mms::file::{FileAttributes, FileNameBuf};
+    use iec61850_kit::proto::mms::{ConfirmedRequest, ConfirmedResponse, Mms, file_error};
+    use iec61850_kit::server::{AcsiConfig, DirectoryStore, FileWritePolicy, Ied, Server, ServerConfig};
 
     fn scratch(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("iec61850-setfile-{tag}-{}", std::process::id()));
@@ -2460,7 +2460,7 @@ mod set_file {
         let mut stream = std::net::TcpStream::connect(addr).unwrap();
         stream.set_read_timeout(Some(Duration::from_millis(20))).unwrap();
         let epoch = StdInstant::now();
-        let now = || iec61850_rs::common::Instant(u64::try_from(epoch.elapsed().as_nanos()).unwrap_or(u64::MAX));
+        let now = || iec61850_kit::common::Instant(u64::try_from(epoch.elapsed().as_nanos()).unwrap_or(u64::MAX));
         let mut a = Association::client(AssociationConfig::default());
         a.start(now()).unwrap();
         let mut buf = vec![0u8; 8192];
@@ -2489,7 +2489,7 @@ mod set_file {
                     AssociationEvent::Request { invoke_id, pdu } => {
                         // Answer the open, then go silent.
                         if let Ok(Mms::ConfirmedRequest { service: ConfirmedRequest::FileOpen { .. }, .. }) =
-                            Mms::parse(&pdu, &iec61850_rs::common::Limits::DEFAULT)
+                            Mms::parse(&pdu, &iec61850_kit::common::Limits::DEFAULT)
                         {
                             let open = ConfirmedResponse::FileOpen { frsm_id: 1, attributes: FileAttributes { size: 1000, last_modified: None } };
                             a.respond(invoke_id, &open).unwrap();
@@ -2527,13 +2527,13 @@ mod set_file {
         let mut other = Client::connect(&addr).unwrap();
         for _ in 0..10 {
             let t = StdInstant::now();
-            other.read("IED1LD0/MMXU1.TotW.mag.f", iec61850_rs::Fc::MX).expect("read during the stalled transfer");
+            other.read("IED1LD0/MMXU1.TotW.mag.f", iec61850_kit::Fc::MX).expect("read during the stalled transfer");
             assert!(t.elapsed() < Duration::from_millis(300), "a read took {:?} while another client stalled", t.elapsed());
         }
         assert_eq!(code(&other.set_file("SETTINGS/second", b"x").unwrap_err()), Some((11, file_error::FILE_BUSY)), "max_obtains is 1");
 
         let (answer, took) = staller.join().unwrap();
-        let parsed = Mms::parse(&answer, &iec61850_rs::common::Limits::DEFAULT).unwrap();
+        let parsed = Mms::parse(&answer, &iec61850_kit::common::Limits::DEFAULT).unwrap();
         assert!(matches!(parsed, Mms::ConfirmedError { .. }), "the stalled ObtainFile is answered with an error: {parsed:?}");
         assert!(took >= Duration::from_millis(500) && took < Duration::from_secs(5), "after obtain_timeout_ms, not before and not never: {took:?}");
         // The slot is free again, and nothing was left behind.
@@ -2554,7 +2554,7 @@ mod set_file {
             let mut stream = std::net::TcpStream::connect(&addr).unwrap();
             stream.set_read_timeout(Some(Duration::from_millis(20))).unwrap();
             let epoch = StdInstant::now();
-            let now = || iec61850_rs::common::Instant(u64::try_from(epoch.elapsed().as_nanos()).unwrap_or(u64::MAX));
+            let now = || iec61850_kit::common::Instant(u64::try_from(epoch.elapsed().as_nanos()).unwrap_or(u64::MAX));
             let mut a = Association::client(AssociationConfig::default());
             a.start(now()).unwrap();
             let mut buf = vec![0u8; 8192];
@@ -2579,7 +2579,7 @@ mod set_file {
                         }
                         AssociationEvent::Request { invoke_id, pdu } => {
                             if let Ok(Mms::ConfirmedRequest { service: ConfirmedRequest::FileOpen { .. }, .. }) =
-                                Mms::parse(&pdu, &iec61850_rs::common::Limits::DEFAULT)
+                                Mms::parse(&pdu, &iec61850_kit::common::Limits::DEFAULT)
                             {
                                 a.respond(
                                     invoke_id,
@@ -2588,7 +2588,7 @@ mod set_file {
                                 .unwrap();
                             }
                             if let Ok(Mms::ConfirmedRequest { service: ConfirmedRequest::FileRead(_), .. }) =
-                                Mms::parse(&pdu, &iec61850_rs::common::Limits::DEFAULT)
+                                Mms::parse(&pdu, &iec61850_kit::common::Limits::DEFAULT)
                             {
                                 // Half the file, then the connection drops.
                                 a.respond(invoke_id, &ConfirmedResponse::FileRead { data: &[7u8; 50], more_follows: true }).unwrap();
@@ -2614,9 +2614,9 @@ mod set_file {
     /// An `ObtainFile` naming a third party as the source is refused before any request goes out.
     #[test]
     fn a_third_party_source_is_refused_before_anything_is_sent() {
-        use iec61850_rs::common::Instant;
-        use iec61850_rs::proto::mms::obtain_file_error;
-        use iec61850_rs::server::{Acsi, Answer};
+        use iec61850_kit::common::Instant;
+        use iec61850_kit::proto::mms::obtain_file_error;
+        use iec61850_kit::server::{Acsi, Answer};
         let dir = scratch("third");
         let cfg = AcsiConfig { file_write: FileWritePolicy::Anyone, ..AcsiConfig::default() };
         let mut acsi = Acsi::with_config(Ied::from_scl(super::RELAY, Some("IED1")).unwrap(), cfg);
@@ -2645,7 +2645,7 @@ mod set_file {
             let (mut stream, _) = listener.accept().unwrap();
             stream.set_read_timeout(Some(Duration::from_millis(20))).unwrap();
             let epoch = StdInstant::now();
-            let now = || iec61850_rs::common::Instant(u64::try_from(epoch.elapsed().as_nanos()).unwrap_or(u64::MAX));
+            let now = || iec61850_kit::common::Instant(u64::try_from(epoch.elapsed().as_nanos()).unwrap_or(u64::MAX));
             let mut a = Association::server(AssociationConfig::default());
             let mut buf = vec![0u8; 8192];
             let mut obtain = None;
@@ -2662,7 +2662,7 @@ mod set_file {
                     match e {
                         AssociationEvent::Request { invoke_id, pdu } => {
                             if let Ok(Mms::ConfirmedRequest { service: ConfirmedRequest::ObtainFile { .. }, .. }) =
-                                Mms::parse(&pdu, &iec61850_rs::common::Limits::DEFAULT)
+                                Mms::parse(&pdu, &iec61850_kit::common::Limits::DEFAULT)
                             {
                                 obtain = Some(invoke_id);
                                 // Ask for a file the client never offered, then for one by a sneaky path.
@@ -2682,8 +2682,8 @@ mod set_file {
             }
             // End the client's SetFile with a refusal so the call returns.
             if let Some(invoke) = obtain {
-                let refusal = iec61850_rs::proto::mms::ServiceError::encode(iec61850_rs::ber::Tag::context_constructed(2), 11, file_error::OTHER).unwrap();
-                let error = iec61850_rs::ber::Cursor::new(&refusal).next_required().unwrap();
+                let refusal = iec61850_kit::proto::mms::ServiceError::encode(iec61850_kit::ber::Tag::context_constructed(2), 11, file_error::OTHER).unwrap();
+                let error = iec61850_kit::ber::Cursor::new(&refusal).next_required().unwrap();
                 a.send(&Mms::ConfirmedError { invoke_id: invoke, modifier_position: None, error }).unwrap();
                 while let Some(p) = a.poll_transmit() {
                     stream.write_all(p).unwrap();
@@ -2698,7 +2698,7 @@ mod set_file {
         let answers = server.join().unwrap();
         assert_eq!(answers.len(), 2, "both probes were answered");
         for pdu in answers {
-            let parsed = Mms::parse(&pdu, &iec61850_rs::common::Limits::DEFAULT).unwrap();
+            let parsed = Mms::parse(&pdu, &iec61850_kit::common::Limits::DEFAULT).unwrap();
             assert!(matches!(parsed, Mms::ConfirmedError { .. }), "a probe was served: {parsed:?}");
         }
     }

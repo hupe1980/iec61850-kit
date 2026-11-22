@@ -1,9 +1,9 @@
 #![no_main]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 
-use iec61850_rs::common::{Instant, Limits, TimeQuality, UtcTime};
-use iec61850_rs::proto::ethernet::{ETHERTYPE_SV, Frame, FrameHeader, MacAddr, VlanTag};
-use iec61850_rs::proto::sv::{Publisher, PublisherConfig, SavPduView, SmpSynch, SvProfile};
+use iec61850_kit::common::{Instant, Limits, TimeQuality, UtcTime};
+use iec61850_kit::proto::ethernet::{ETHERTYPE_SV, Frame, FrameHeader, MacAddr, VlanTag};
+use iec61850_kit::proto::sv::{Publisher, PublisherConfig, SavPduView, SmpSynch, SvProfile};
 use libfuzzer_sys::fuzz_target;
 
 // Whatever sample bytes and counters the fuzzer chooses, the frame the publisher builds

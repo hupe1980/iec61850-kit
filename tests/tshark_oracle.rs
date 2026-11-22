@@ -6,17 +6,17 @@
 
 mod common;
 
-use iec61850_rs::common::{Instant, Quality, TimeQuality, UtcTime};
-use iec61850_rs::proto::data::Value;
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, FrameHeader, MacAddr, RESERVED1_SIMULATION, VlanTag};
-use iec61850_rs::proto::goose::GoosePdu;
-use iec61850_rs::proto::sv::le::PhsMeas1;
-use iec61850_rs::proto::sv::{Asdu, Publisher as SvPublisher, PublisherConfig as SvPublisherConfig, SavPdu, SmpSynch, SvProfile};
+use iec61850_kit::common::{Instant, Quality, TimeQuality, UtcTime};
+use iec61850_kit::proto::data::Value;
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, ETHERTYPE_SV, FrameHeader, MacAddr, RESERVED1_SIMULATION, VlanTag};
+use iec61850_kit::proto::goose::GoosePdu;
+use iec61850_kit::proto::sv::le::PhsMeas1;
+use iec61850_kit::proto::sv::{Asdu, Publisher as SvPublisher, PublisherConfig as SvPublisherConfig, SavPdu, SmpSynch, SvProfile};
 
 fn dissect(frames: &[Vec<u8>]) -> String {
     static SEQ: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     let tshark = common::tshark().expect("tshark present");
-    let dir = std::env::temp_dir().join(format!("iec61850-rs-oracle-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("iec61850-kit-oracle-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     // Tests run in parallel inside one process: one file per call.
     let pcap = dir.join(format!("frames-{}.pcap", SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));

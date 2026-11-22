@@ -13,14 +13,14 @@
 //! cargo run --example supervised_subscriber
 //! ```
 
-use iec61850_rs::client::Client;
-use iec61850_rs::common::{Instant, TimeQuality, UtcTime};
-use iec61850_rs::model::IedModel;
-use iec61850_rs::proto::data::{Typed, Value};
-use iec61850_rs::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
-use iec61850_rs::proto::goose::{GoosePdu, PublisherConfig, Subscriber, SubscriberConfig, SubscriptionKey};
-use iec61850_rs::server::{Ied, Server, SubscriptionStatus};
-use iec61850_rs::{Fc, Result};
+use iec61850_kit::client::Client;
+use iec61850_kit::common::{Instant, TimeQuality, UtcTime};
+use iec61850_kit::model::IedModel;
+use iec61850_kit::proto::data::{Typed, Value};
+use iec61850_kit::proto::ethernet::{ETHERTYPE_GOOSE, FrameHeader, MacAddr};
+use iec61850_kit::proto::goose::{GoosePdu, PublisherConfig, Subscriber, SubscriberConfig, SubscriptionKey};
+use iec61850_kit::server::{Ied, Server, SubscriptionStatus};
+use iec61850_kit::{Fc, Result};
 
 /// The subscribing IED: one `LGOS`, engineered to watch `IED1`'s trip GOOSE.
 const SUBSCRIBER: &str = r#"<?xml version="1.0"?>
@@ -58,7 +58,7 @@ fn main() -> Result<()> {
     // Which logical node supervises which control block is **engineering**, so it comes out
     // of the file rather than being typed here a second time.
     let model = IedModel::from_scl(SUBSCRIBER, None)?;
-    let node = model.supervision().into_iter().find(|n| n.watches(GOCB)).ok_or(iec61850_rs::Error::NotFound("an LGOS for that control block"))?;
+    let node = model.supervision().into_iter().find(|n| n.watches(GOCB)).ok_or(iec61850_kit::Error::NotFound("an LGOS for that control block"))?;
     println!("{} supervises {}", node.node, node.control_block.as_deref().unwrap_or("-"));
 
     let server = Server::bind("127.0.0.1:0", Ied::new(model)?)?;
