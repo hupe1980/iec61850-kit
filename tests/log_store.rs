@@ -230,7 +230,19 @@ fn a_restarted_server_resumes_its_log() {
     let file = TempFile::new("server");
     let serve = || {
         let mut server = Server::bind("127.0.0.1:0", Ied::from_scl(RELAY, None).unwrap()).unwrap();
-        server.set_log_store(Box::new(RedbLog::open(&file.0, server.log_references(), 100).unwrap()));
+        // `accept_one` returns once the association's thread is spawned, and that thread holds
+        // the first server's store until the release has been processed — so the restart may
+        // find the file still open for a moment. Wait for it rather than race it.
+        let until = std::time::Instant::now() + Duration::from_secs(10);
+        let store = loop {
+            match RedbLog::open(&file.0, server.log_references(), 100) {
+                Err(e) if e.to_string().contains("already open") && std::time::Instant::now() < until => {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                other => break other.unwrap(),
+            }
+        };
+        server.set_log_store(Box::new(store));
         let addr = server.local_addr().unwrap().to_string();
         let handle = server.handle();
         let thread = std::thread::spawn(move || {
