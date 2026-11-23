@@ -55,6 +55,8 @@ COMMANDS:
     mms status <HOST[:PORT]>       Ask whether the server is healthy — the cheapest round trip there is
     mms browse <HOST[:PORT]>       Walk the server: logical devices, data, data sets
     mms read <HOST[:PORT]> <REF>   Read one data attribute
+    mms tariff <HOST[:PORT]> <LD/FSCH> <START> <END> <UNIT>
+                                   Read a daily tariff; START and END are UTC Unix seconds
     mms write <HOST[:PORT]> <REF> <VALUE>
                                    Write one data attribute
     mms report <HOST[:PORT]>       Enable a report control block and print its reports
@@ -79,6 +81,11 @@ COMMANDS:
     mu <FILE.pcap> [OPTIONS]       Generate a sampled-value stream into a capture
     mu --iface <IF> [OPTIONS]      …onto a live interface, paced at the profile's rate
     sim <FILE.scd|.icd|.cid>       Serve the file's IEDs as real MMS servers
+
+`mms tariff` options:
+    --start-object <NAME>          Absolute start object (default StrTm1)
+    --first-price <NAME>           First numbered price object (default ValASG001)
+    --fc <SP|SG>                   Settings constraint (default SP)
 
 Every command answers -h / --help with its own usage.
 
@@ -221,6 +228,7 @@ fn main() -> ExitCode {
         ["mms", "identify", host, rest @ ..] => mms_identify(host, rest),
         ["mms", "status", host, rest @ ..] => mms_status(host, rest),
         ["mms", "browse", host, rest @ ..] => mms_browse(host, rest),
+        ["mms", "tariff", host, node, start, end, unit, rest @ ..] => mms_tariff(host, node, start, end, unit, rest),
         ["mms", "read", host, reference, rest @ ..] => mms_read(host, reference, rest),
         ["mms", "write", host, reference, value, rest @ ..] => mms_write(host, reference, value, rest),
         ["mms", "report", host, rest @ ..] => mms_report(host, rest),
@@ -1633,6 +1641,8 @@ struct MmsOptions {
     edit: Option<u32>,
     lcb: Option<String>,
     entries: usize,
+    first_price: Option<String>,
+    start_object: Option<String>,
 }
 
 impl Default for MmsOptions {
@@ -1664,6 +1674,8 @@ impl Default for MmsOptions {
             edit: None,
             lcb: None,
             entries: 1000,
+            first_price: None,
+            start_object: None,
         }
     }
 }
@@ -1711,6 +1723,8 @@ fn mms_options(args: &[&str]) -> Result<MmsOptions, String> {
             "--activate" => o.activate = Some(value()?.parse().map_err(|_| "--activate needs a group number".to_string())?),
             "--edit" => o.edit = Some(value()?.parse().map_err(|_| "--edit needs a group number".to_string())?),
             "--lcb" => o.lcb = Some(value()?.to_string()),
+            "--first-price" => o.first_price = Some(value()?.to_owned()),
+            "--start-object" => o.start_object = Some(value()?.to_owned()),
             "--entries" => o.entries = value()?.parse().map_err(|_| "--entries needs a number".to_string())?,
             "--scd" => o.scd = Some(value()?.to_string()),
             "--ied" => o.ied = Some(value()?.to_string()),
@@ -1764,6 +1778,31 @@ fn connect_with(host: &str, mut cfg: ClientConfig, o: &MmsOptions) -> Result<Cli
     cfg.association.request_timeout_ms = o.timeout.as_millis() as u64;
     cfg.connect_timeout = o.timeout;
     Client::connect_with(host, &cfg).map_err(|e| format!("{host}: {e}"))
+}
+
+fn mms_tariff(host: &str, node: &str, start: &str, end: &str, unit: &str, args: &[&str]) -> Result<(), String> {
+    use iec61850_kit::client::TariffProfile;
+    let o = mms_options(args)?;
+    let timestamp = |s: &str| s.parse::<u32>().map_err(|_| format!("expected UTC Unix seconds, got {s}"));
+    let window = timestamp(start)?..timestamp(end)?;
+    let mut profile = TariffProfile::new(unit);
+    if let Some(name) = o.first_price.as_deref() {
+        profile.first_price = name;
+    }
+    if let Some(name) = o.start_object.as_deref() {
+        profile.start_object = name;
+    }
+    if o.fc_given {
+        profile.settings_fc = o.fc;
+    }
+    let mut client = mms_connect(host, &o)?;
+    let schedule = client.read_tariff_schedule(node, profile, window).map_err(|e| format!("{node}: {e}"))?;
+    let _ = client.release();
+    println!("start_utc_s\tend_utc_s\tprice\tunit");
+    for slot in schedule.slots {
+        println!("{}\t{}\t{}\t{}", slot.utc.start, slot.utc.end, slot.price, schedule.price_unit);
+    }
+    Ok(())
 }
 
 fn mms_identify(host: &str, args: &[&str]) -> Result<(), String> {

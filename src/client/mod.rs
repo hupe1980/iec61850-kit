@@ -37,12 +37,14 @@ mod files;
 mod log;
 mod rcb;
 mod sg;
+mod tariff;
 
 pub use control::{CONTROL_ATTRIBUTES, Control};
 pub use files::FileEntry;
 pub use log::{Lcb, LogEntry, LogPage};
 pub use rcb::{Rcb, RcbSettings};
 pub use sg::Sgcb;
+pub use tariff::{TariffProfile, TariffSchedule, TariffSlot};
 
 // The report types belong to the codec; re-exported here because a client user reaches for
 // them without needing to know which layer they came from.
@@ -765,6 +767,11 @@ impl<S: Read + Write> Client<S> {
         let Mms::ConfirmedResponse { service: ConfirmedResponse::Read { results, .. }, .. } = Mms::parse(&pdu, &self.limits)? else {
             return Err(Error::InvalidValue("not a Read response"));
         };
+        if let VariableAccess::ListOfVariable(items) = access
+            && items.len() != results.len()
+        {
+            return Err(Error::InvalidValue("server returned the wrong number of Read results"));
+        }
         Ok(results
             .iter()
             .map(|r| match r {
