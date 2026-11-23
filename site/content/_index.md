@@ -53,7 +53,7 @@ a = "It allocates nothing once running: a counting allocator asserts zero alloca
 
 [[extra.faq]]
 q = "Does it do the IEC 62351 security extensions?"
-a = "The IEC 62351-6 replay-protection state machine, yes, and it is always on, because a conforming subscriber must run it whether or not the stream carries security. A server can require the ACSE password. The layer-2 authentication extension and TLS (IEC 62351-3) are not implemented."
+a = "GOOSE replay protection is always on. MMS supports an ACSE password and application-managed TLS on both ends. Your TLS provider handles certificates and peer verification."
 
 [[extra.faq]]
 q = "What licence is it under, and can I use it commercially?"
@@ -235,40 +235,15 @@ tool says about a frame is what a subscribing IED would decide. CI runs `ied mu`
 <section class="band">
 <div class="wrap">
 
-## Scope
+## Run an example
 
-<div class="grid">
-<div class="card">
-<h3>Built</h3>
-<p><strong>Process bus.</strong> GOOSE and Sampled Values: codecs, publishers, subscribers,
-the 9-2LE and IEC 61869-9 profiles and any other engineered data set — over capture files or
-live interfaces (Linux <code>AF_PACKET</code> rings with launch-time transmit, macOS BPF).</p>
-<p><strong>Station bus, both ends.</strong> All six OSI layers, the association for both
-roles, and above it a client and a server with no async runtime: browse,
-read, write, reporting with server-side segmentation, all four control models, files (including <code>SetFile</code>), durable logs,
-setting groups, type discovery, data-set create/delete and IEC 61850-7-2 service tracking — and
-a client that reconnects on a backoff you state.</p>
-<p><strong>Engineering.</strong> SCL loading from ICD, CID and SCD, subscription resolution,
-the engineering checks the XML schema permits, and editing that keeps every untouched byte. A BER codec, the wire types, pcap, and the
-<code>ied</code> command line.</p>
-</div>
-<div class="card">
-<h3>Not included</h3>
-<p>TLS (IEC 62351-3) and the IEC 62351-6 authentication extension. Routable GOOSE/SV
-(IEC TR 61850-90-5). Unicast SV. An async client.</p>
-<p>Out of scope entirely: the XMPP mapping of IEC 61850-8-2, Edition 1 GSSE, and a graphical
-SCL editor — <a href="https://github.com/openscd/open-scd">OpenSCD</a> already is one.</p>
-</div>
-</div>
+```bash
+cargo run --example mms_loopback
+cargo run --example server_from_scl
+```
 
-<p class="sub">Six runnable examples ship with the crate — a GOOSE publisher driving a
-subscriber, a merging unit, an MMS client against an MMS server in one process, a server built
-from an SCL file, an SCD as the configuration, and a subscription supervised by an
-<code>LGOS</code>. Each needs no device and no network.</p>
-
-<p class="sub">The API is pre-1.0 and changes between minor versions. Nothing here has been
-through a conformance laboratory; <a href="@/docs/verification.md">Verification</a> says what
-is and is not proven.</p>
+Both examples run locally. See [Verification](@/docs/verification.md) for tested
+interoperability with other IEC 61850 implementations.
 
 </div>
 </section>

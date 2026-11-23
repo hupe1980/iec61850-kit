@@ -1,10 +1,7 @@
-//! A blocking IEC 61850 server over TCP — the mirror of [`crate::client`].
+//! Blocking MMS sessions over TCP or an application-owned stream.
 //!
-//! [`crate::proto::mms::association::Association`] is the same state machine the client
-//! drives, in the server role; this is the socket and the accept loop around it. One thread
-//! per association, one model behind one lock, and no runtime and no dependency — the same
-//! trade the client makes, for the same reason: the sans-IO core is what an async wrapper
-//! would be written against, so a runtime here would buy nothing and cost every caller.
+//! [`Server::accept_one`] spawns a TCP worker. [`Server::serve_stream`] drives one session
+//! on the calling thread. Both use the same IED model and association limits.
 //!
 //! ```no_run
 //! use iec61850_kit::server::{Ied, Server};
@@ -27,7 +24,7 @@
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr, TcpListener, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, TrySendError, sync_channel};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
@@ -74,6 +71,15 @@ impl Default for ServerConfig {
             max_associations: 16,
             poll_interval: Duration::from_millis(20),
             outbound_queue: 256,
+        }
+    }
+}
+
+impl ServerConfig {
+    fn read_interval(&self) -> Duration {
+        match self.association.connect_timeout_ms {
+            0 => self.poll_interval,
+            ms => self.poll_interval.min(Duration::from_millis(ms)),
         }
     }
 }
@@ -145,8 +151,8 @@ fn now_nanos() -> u64 {
 
 /// A blocking IEC 61850 server.
 #[derive(Debug)]
-pub struct Server {
-    listener: TcpListener,
+pub struct Server<L = TcpListener> {
+    listener: L,
     shared: Arc<Mutex<Shared>>,
     cfg: ServerConfig,
     /// A process-bus sink registered with [`Server::publish_to`], waiting for the server to
@@ -197,20 +203,60 @@ impl Server {
         let target =
             with_port.to_socket_addrs().map_err(|e| Error::Io(format!("{addr}: {e}")))?.next().ok_or_else(|| Error::Io(format!("{addr}: no address")))?;
         let listener = TcpListener::bind(target).map_err(|e| Error::Io(format!("{addr}: {e}")))?;
-        let mut acsi = Acsi::with_config(ied, cfg.acsi.clone());
-        acsi.set_max_pdu(cfg.association.max_pdu as usize);
-        Ok(Server {
-            listener,
-            shared: Arc::new(Mutex::new(Shared { acsi, outbound: BTreeMap::new(), next_assoc: 1, wake: None })),
-            cfg: cfg.clone(),
-            process_bus: Mutex::new(None),
-        })
+        Ok(Server::with_listener(listener, ied, cfg))
     }
 
     /// The address the server is listening on, which is how a caller learns the port it got
     /// when it asked for zero.
     pub fn local_addr(&self) -> Result<SocketAddr> {
         self.listener.local_addr().map_err(|e| Error::Io(e.to_string()))
+    }
+
+    /// Accept associations for ever, one thread each.
+    pub fn run(&self) -> Result<()> {
+        self.start_process_bus()?;
+        loop {
+            self.accept_one()?;
+        }
+    }
+
+    /// Accept one association and serve it on a new thread.
+    ///
+    /// Returns as soon as the connection is handed over, so a test can accept a known number
+    /// of clients without a background accept loop it then has to stop.
+    pub fn accept_one(&self) -> Result<()> {
+        self.start_process_bus()?;
+        let (stream, peer) = self.listener.accept().map_err(|e| Error::Io(e.to_string()))?;
+        let Some(session) = self.reserve(peer.ip()) else { return Ok(()) };
+        let cfg = self.cfg.clone();
+        std::thread::Builder::new()
+            .spawn(move || {
+                if stream.set_nodelay(true).is_ok() {
+                    let _ = session.serve(stream, &cfg, |tcp, t| tcp.set_read_timeout(Some(t)));
+                }
+            })
+            .map_err(|e| Error::Io(e.to_string()))?;
+        Ok(())
+    }
+}
+
+impl Server<()> {
+    /// Create an IED server for application-owned streams without binding a socket.
+    pub fn new(ied: Ied, cfg: &ServerConfig) -> Self {
+        Self::with_listener((), ied, cfg)
+    }
+}
+
+impl<L> Server<L> {
+    fn with_listener(listener: L, ied: Ied, cfg: &ServerConfig) -> Self {
+        let mut acsi = Acsi::with_config(ied, cfg.acsi.clone());
+        acsi.set_max_pdu(cfg.association.max_pdu as usize);
+        Server {
+            listener,
+            shared: Arc::new(Mutex::new(Shared { acsi, outbound: BTreeMap::new(), next_assoc: 1, wake: None })),
+            cfg: cfg.clone(),
+            process_bus: Mutex::new(None),
+        }
     }
 
     /// A handle for the application to update the model through.
@@ -267,8 +313,8 @@ impl Server {
     /// publishers' deadlines and whenever a frame is queued, so a state change is on the wire
     /// without waiting for a timer. The source address is the link's.
     ///
-    /// No thread is started here: the process-bus thread starts with [`Server::run`] (or the
-    /// first [`Server::accept_one`]). Open every link, register it, call
+    /// No thread is started here: the process-bus thread starts on the first call to [`Server::run`],
+    /// [`Server::accept_one`] or [`Server::serve_stream`]. Open every link, register it, call
     /// [`crate::net::drop_capabilities`], then serve — Linux capabilities are per thread, and a
     /// thread spawned before the drop would keep them.
     #[cfg(feature = "net")]
@@ -326,48 +372,49 @@ impl Server {
         self.shared.lock().unwrap_or_else(PoisonError::into_inner).acsi.set_nominal_hz(hz);
     }
 
-    /// Accept associations for ever, one thread each.
-    pub fn run(&self) -> Result<()> {
+    /// Serve one application-supplied blocking stream until MMS release, EOF or error.
+    ///
+    /// Pass the peer IP from trusted transport metadata for report ownership. The caller
+    /// completes TLS verification and bounds writes before handoff. The callback configures
+    /// the read timeout so idle sessions can deliver reports and advance timers. A full
+    /// server returns [`Error::LimitExceeded`] before accessing the stream.
+    pub fn serve_stream<S: Read + Write>(&self, stream: S, peer: IpAddr, set_read_timeout: impl FnOnce(&mut S, Duration) -> std::io::Result<()>) -> Result<()> {
         self.start_process_bus()?;
-        loop {
-            self.accept_one()?;
-        }
+        let session = self.reserve(peer).ok_or(Error::LimitExceeded { limit: "MMS associations", value: self.cfg.max_associations.saturating_add(1) })?;
+        session.serve(stream, &self.cfg, set_read_timeout)
     }
 
-    /// Accept one association and serve it on a new thread.
-    ///
-    /// Returns as soon as the connection is handed over, so a test can accept a known number
-    /// of clients without a background accept loop it then has to stop.
-    pub fn accept_one(&self) -> Result<()> {
-        self.start_process_bus()?;
-        let (stream, _) = self.listener.accept().map_err(|e| Error::Io(e.to_string()))?;
-        let shared = Arc::clone(&self.shared);
-        let cfg = self.cfg.clone();
-        let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
-        if guard.outbound.len() >= cfg.max_associations {
-            // Closing the socket is the honest answer: the association slots are full, and
-            // accepting one we cannot serve would be worse than refusing it.
-            drop(guard);
-            let _ = stream.shutdown(std::net::Shutdown::Both);
-            return Ok(());
+    fn reserve(&self, peer: IpAddr) -> Option<Session> {
+        let mut guard = self.shared.lock().unwrap_or_else(PoisonError::into_inner);
+        if guard.outbound.len() >= self.cfg.max_associations {
+            return None;
         }
         let id = guard.next_assoc;
         guard.next_assoc += 1;
-        let (tx, rx) = sync_channel(cfg.outbound_queue.max(1));
+        let (tx, outbound) = sync_channel(self.cfg.outbound_queue.max(1));
         let stalled = Arc::new(AtomicBool::new(false));
         guard.outbound.insert(id, Outbound { tx, stalled: Arc::clone(&stalled) });
-        // What a report control block's `Owner` will say while this client holds one. The
-        // peer's address is what the transport knows and the ACSI layer cannot invent.
-        guard.acsi.on_association_opened(id, peer_identity(&stream));
-        drop(guard);
+        let owner = match peer {
+            IpAddr::V4(ip) => ip.octets().to_vec(),
+            IpAddr::V6(ip) => ip.octets().to_vec(),
+        };
+        guard.acsi.on_association_opened(id, owner);
+        Some(Session { id, shared: Arc::clone(&self.shared), outbound, stalled })
+    }
+}
 
-        std::thread::spawn(move || {
-            let _ = serve(id, stream, &shared, &cfg, &rx, &stalled);
-            let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
-            guard.outbound.remove(&id);
-            guard.acsi.on_association_closed(id, Instant(now_nanos()));
-        });
-        Ok(())
+struct Session {
+    id: AssocId,
+    shared: Arc<Mutex<Shared>>,
+    outbound: Receiver<Vec<u8>>,
+    stalled: Arc<AtomicBool>,
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        let mut guard = self.shared.lock().unwrap_or_else(PoisonError::into_inner);
+        guard.outbound.remove(&self.id);
+        guard.acsi.on_association_closed(self.id, Instant(now_nanos()));
     }
 }
 
@@ -491,19 +538,6 @@ impl Txn<'_> {
     }
 }
 
-/// The octets a report control block's `Owner` carries for this connection: the peer's IP
-/// address, four octets for IPv4 and sixteen for IPv6.
-///
-/// Empty when the socket will not say, which is honest — an `Owner` of no octets means "not
-/// held", and inventing an identity would be worse than admitting the transport was quiet.
-fn peer_identity(stream: &TcpStream) -> Vec<u8> {
-    match stream.peer_addr() {
-        Ok(SocketAddr::V4(a)) => a.ip().octets().to_vec(),
-        Ok(SocketAddr::V6(a)) => a.ip().octets().to_vec(),
-        Err(_) => Vec::new(),
-    }
-}
-
 /// Turn whatever is dirty into reports and hand each to the association that asked for it.
 fn publish(shared: &mut Shared, now: Instant) {
     let due = shared.acsi.commit(now);
@@ -576,133 +610,132 @@ fn issue_transfer_calls(shared: &Arc<Mutex<Shared>>, assoc: &mut Association, id
     }
 }
 
-/// One association, from the COTP connection request to the release.
-fn serve(
-    id: AssocId,
-    mut stream: TcpStream,
-    shared: &Arc<Mutex<Shared>>,
-    cfg: &ServerConfig,
-    outbound: &Receiver<Vec<u8>>,
-    stalled: &AtomicBool,
-) -> Result<()> {
-    stream.set_nodelay(true).map_err(|e| Error::Io(e.to_string()))?;
-    stream.set_read_timeout(Some(cfg.poll_interval)).map_err(|e| Error::Io(e.to_string()))?;
-    let mut assoc = Association::server(cfg.association.clone());
-    let mut buf = vec![0u8; 8192];
-    let limits = cfg.association.limits;
-
-    loop {
-        let now = Instant(now_nanos());
-        match stream.read(&mut buf) {
-            Ok(0) => return Ok(()),
-            Ok(n) => assoc.on_bytes(now, buf.get(..n).unwrap_or(&[])),
-            Err(e) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => assoc.on_timeout(now),
-            Err(e) => return Err(Error::Io(e.to_string())),
-        }
-
-        {
-            // A gathering window or an integrity period may have come due while this thread
-            // was in the socket read, and nothing else will notice.
-            let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
-            let due = guard.acsi.on_timeout(now);
-            dispatch(&guard, due);
-        }
-
-        let mut requests: Vec<(i64, Vec<u8>)> = Vec::new();
-        let mut closed = false;
-        while let Some(event) = assoc.poll_event() {
-            match event {
-                AssociationEvent::Request { invoke_id, pdu } => requests.push((invoke_id, pdu)),
-                AssociationEvent::Closed(_) => closed = true,
-                // The answers to the requests this server issued toward the client — the
-                // `FileOpen`/`FileRead`/`FileClose` of an `ObtainFile`. The last one ends the
-                // transfer and answers the client's `ObtainFile`.
-                AssociationEvent::Response { invoke_id, pdu } => {
-                    let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
-                    let answer = match Mms::parse(&pdu, &limits) {
-                        Ok(mms) => guard.acsi.obtain_response(id, invoke_id, &mms),
-                        Err(_) => guard.acsi.obtain_failed(id, Some(invoke_id)),
-                    };
-                    drop(guard);
-                    if let Some(bytes) = answer {
-                        let _ = assoc.send_encoded(&bytes);
-                    }
-                }
-                AssociationEvent::Timeout { invoke_id } | AssociationEvent::Malformed { invoke_id: Some(invoke_id), .. } => {
-                    let answer = shared.lock().unwrap_or_else(PoisonError::into_inner).acsi.obtain_failed(id, Some(invoke_id));
-                    if let Some(bytes) = answer {
-                        let _ = assoc.send_encoded(&bytes);
-                    }
-                }
-                // What the peer agreed to accept sizes two things the ACSI layer would
-                // otherwise guess at: a `GetNameList` page and a report. ISO 9506 negotiates
-                // *down*, so the server's own configured size is an upper bound, not an
-                // agreement, and a report larger than this is segmented rather than dropped.
-                AssociationEvent::Established(n) => {
-                    let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
-                    guard.acsi.set_association_max_pdu(id, n.max_pdu);
-                    guard.acsi.set_authenticated(id, n.authenticated);
-                }
-                // A response, a timeout or an undecodable PDU on a server association: none
-                // of them is a request, and none of them is a reason to drop the client.
-                _ => {}
-            }
-        }
-
-        for (invoke_id, pdu) in requests {
-            let answer = {
-                let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
-                let answer = match Mms::parse(&pdu, &limits) {
-                    Ok(Mms::ConfirmedRequest { service, .. }) => guard.acsi.request(id, now, &service),
-                    // Not a confirmed request, or not a PDU at all — which ISO 9506 answers
-                    // with a reject naming the *PDU*, not with a service error naming a
-                    // service that was never called.
-                    _ => super::acsi::Answer::INVALID_PDU,
-                };
-                // An `ObtainFile` is answered when the file has arrived, not now.
-                if matches!(answer, super::acsi::Answer::Deferred) {
-                    guard.acsi.obtain_bind(id, invoke_id);
-                }
-                answer
-            };
-            if let Ok(bytes) = answer.encode(invoke_id)
-                && !bytes.is_empty()
-            {
-                let _ = assoc.send_encoded(&bytes);
-            }
-            // A commit may have happened inside the request — a control that changed a
-            // position, a `GI` that asked for a report — so the queues are drained below.
-            let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
-            publish(&mut guard, now);
-        }
-
-        issue_transfer_calls(shared, &mut assoc, id, now);
+impl Session {
+    /// One association, from the COTP connection request to the release.
+    fn serve<S: Read + Write>(&self, mut stream: S, cfg: &ServerConfig, set_read_timeout: impl FnOnce(&mut S, Duration) -> std::io::Result<()>) -> Result<()> {
+        set_read_timeout(&mut stream, cfg.read_interval()).map_err(|e| Error::Io(e.to_string()))?;
+        let id = self.id;
+        let shared = &self.shared;
+        let handshake_deadline = Instant(now_nanos()).plus_millis(cfg.association.connect_timeout_ms);
+        let mut assoc = Association::server(cfg.association.clone());
+        let mut buf = vec![0u8; 8192];
+        let limits = cfg.association.limits;
 
         loop {
-            match outbound.try_recv() {
-                Ok(pdu) => {
-                    let _ = assoc.send_encoded(&pdu);
-                }
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => return Ok(()),
+            let read = stream.read(&mut buf);
+            let now = Instant(now_nanos());
+            if cfg.association.connect_timeout_ms != 0 && assoc.negotiated().is_none() && now >= handshake_deadline {
+                return Err(Error::Io(String::from("MMS handshake timed out")));
             }
-        }
+            assoc.on_timeout(now);
+            match read {
+                Ok(0) => return Ok(()),
+                Ok(n) => assoc.on_bytes(now, buf.get(..n).unwrap_or(&[])),
+                Err(e) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut | std::io::ErrorKind::Interrupted) => {}
+                Err(e) => return Err(Error::Io(e.to_string())),
+            }
 
-        while let Some(packet) = assoc.poll_transmit() {
-            let packet = packet.to_vec();
-            if stream.write_all(&packet).is_err() {
+            {
+                // A gathering window or an integrity period may have come due while this thread
+                // was in the socket read, and nothing else will notice.
+                let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
+                let due = guard.acsi.on_timeout(now);
+                dispatch(&guard, due);
+            }
+
+            let mut requests: Vec<(i64, Vec<u8>)> = Vec::new();
+            let mut closed = false;
+            while let Some(event) = assoc.poll_event() {
+                match event {
+                    AssociationEvent::Request { invoke_id, pdu } => requests.push((invoke_id, pdu)),
+                    AssociationEvent::Closed(_) => closed = true,
+                    // The answers to the requests this server issued toward the client — the
+                    // `FileOpen`/`FileRead`/`FileClose` of an `ObtainFile`. The last one ends the
+                    // transfer and answers the client's `ObtainFile`.
+                    AssociationEvent::Response { invoke_id, pdu } => {
+                        let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
+                        let answer = match Mms::parse(&pdu, &limits) {
+                            Ok(mms) => guard.acsi.obtain_response(id, invoke_id, &mms),
+                            Err(_) => guard.acsi.obtain_failed(id, Some(invoke_id)),
+                        };
+                        drop(guard);
+                        if let Some(bytes) = answer {
+                            let _ = assoc.send_encoded(&bytes);
+                        }
+                    }
+                    AssociationEvent::Timeout { invoke_id } | AssociationEvent::Malformed { invoke_id: Some(invoke_id), .. } => {
+                        let answer = shared.lock().unwrap_or_else(PoisonError::into_inner).acsi.obtain_failed(id, Some(invoke_id));
+                        if let Some(bytes) = answer {
+                            let _ = assoc.send_encoded(&bytes);
+                        }
+                    }
+                    // What the peer agreed to accept sizes two things the ACSI layer would
+                    // otherwise guess at: a `GetNameList` page and a report. ISO 9506 negotiates
+                    // *down*, so the server's own configured size is an upper bound, not an
+                    // agreement, and a report larger than this is segmented rather than dropped.
+                    AssociationEvent::Established(n) => {
+                        let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
+                        guard.acsi.set_association_max_pdu(id, n.max_pdu);
+                        guard.acsi.set_authenticated(id, n.authenticated);
+                    }
+                    // A response, a timeout or an undecodable PDU on a server association: none
+                    // of them is a request, and none of them is a reason to drop the client.
+                    _ => {}
+                }
+            }
+
+            for (invoke_id, pdu) in requests {
+                let answer = {
+                    let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
+                    let answer = match Mms::parse(&pdu, &limits) {
+                        Ok(Mms::ConfirmedRequest { service, .. }) => guard.acsi.request(id, now, &service),
+                        // Not a confirmed request, or not a PDU at all — which ISO 9506 answers
+                        // with a reject naming the *PDU*, not with a service error naming a
+                        // service that was never called.
+                        _ => super::acsi::Answer::INVALID_PDU,
+                    };
+                    // An `ObtainFile` is answered when the file has arrived, not now.
+                    if matches!(answer, super::acsi::Answer::Deferred) {
+                        guard.acsi.obtain_bind(id, invoke_id);
+                    }
+                    answer
+                };
+                if let Ok(bytes) = answer.encode(invoke_id)
+                    && !bytes.is_empty()
+                {
+                    let _ = assoc.send_encoded(&bytes);
+                }
+                // A commit may have happened inside the request — a control that changed a
+                // position, a `GI` that asked for a report — so the queues are drained below.
+                let mut guard = shared.lock().unwrap_or_else(PoisonError::into_inner);
+                publish(&mut guard, now);
+            }
+
+            issue_transfer_calls(shared, &mut assoc, id, now);
+
+            loop {
+                match self.outbound.try_recv() {
+                    Ok(pdu) => {
+                        let _ = assoc.send_encoded(&pdu);
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => return Ok(()),
+                }
+            }
+
+            while let Some(packet) = assoc.poll_transmit() {
+                stream.write_all(packet).map_err(|e| Error::Io(e.to_string()))?;
+            }
+            stream.flush().map_err(|e| Error::Io(e.to_string()))?;
+            if closed {
                 return Ok(());
             }
-        }
-        let _ = stream.flush();
-        if closed {
-            return Ok(());
-        }
-        // The client is not draining its socket and its queue has filled. Closing is what
-        // bounds the server's memory; a buffered control block keeps its entries, so the
-        // client resumes from its `EntryID` rather than losing them.
-        if stalled.load(Ordering::Relaxed) {
-            return Ok(());
+            // The client is not draining its socket and its queue has filled. Closing is what
+            // bounds the server's memory; a buffered control block keeps its entries, so the
+            // client resumes from its `EntryID` rather than losing them.
+            if self.stalled.load(Ordering::Relaxed) {
+                return Ok(());
+            }
         }
     }
 }

@@ -41,8 +41,8 @@ use crate::proto::mms::control::{AddCause, Check, CommandTermination, ControlMod
 /// # Ok(()) }
 /// ```
 #[derive(Debug)]
-pub struct Control<'c> {
-    client: &'c mut Client,
+pub struct Control<'c, S = std::net::TcpStream> {
+    client: &'c mut Client<S>,
     /// The controllable object, as `LD/LN$CO$DO`.
     base: String,
     /// The reference the caller wrote, kept for `ctlModel` discovery.
@@ -58,13 +58,13 @@ pub struct Control<'c> {
     timeout: Duration,
 }
 
-impl Client {
+impl<S: std::io::Read + std::io::Write> Client<S> {
     /// Start a control operation on a controllable object.
     ///
     /// `reference` names the data object, not one of its control attributes:
     /// `IED1LD0/CSWI1.Pos`, or `IED1LD0/CSWI1$CO$Pos`. The `$Oper`, `$SBO`, `$SBOw` and
     /// `$Cancel` below it are this module's business.
-    pub fn control<'c>(&'c mut self, reference: &str) -> Control<'c> {
+    pub fn control<'c>(&'c mut self, reference: &str) -> Control<'c, S> {
         let timeout = self.timeout();
         // A reference that does not parse is passed through untouched: the server's error
         // names the reference the caller wrote, which is more useful than one this rewrote.
@@ -91,7 +91,7 @@ impl Client {
     }
 }
 
-impl Control<'_> {
+impl<S: std::io::Read + std::io::Write> Control<'_, S> {
     /// The control model the object is engineered with (`ctlModel`).
     ///
     /// Getting this wrong is the most common reason a control silently does nothing: an

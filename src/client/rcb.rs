@@ -161,7 +161,7 @@ const BUFFERED: &[&str] = &["PurgeBuf", "EntryID", "TimeOfEntry", "TimeofEntry",
 /// Unbuffered only.
 const UNBUFFERED: &[&str] = &["Resv"];
 
-impl Client {
+impl<S: std::io::Read + std::io::Write> Client<S> {
     /// Read a report control block.
     ///
     /// `reference` is the block, in either spelling — `IED1LD0/LLN0$RP$urcb01`, which carries

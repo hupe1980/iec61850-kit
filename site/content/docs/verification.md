@@ -207,6 +207,9 @@ Every push runs `rustfmt`, `clippy` with warnings denied, a `no_std` build for
 own — `std`, `goose`, `sv`, `mms`, `scl`, `pcap`, `client`, `server`, `cli` — and with none.
 Documentation is built with warnings denied on the all-features build docs.rs serves.
 
+The blocking MMS stream test uses a verified rustls connection to identify the IED, read
+the report owner and receive an unsolicited report. It exercises application-managed TLS.
+
 ## What is not proven
 
 - **No conformance certificate.** IEC 61850-10 test procedures, run by UCAIug-accredited

@@ -1,7 +1,7 @@
 //! A blocking IEC 61850 client over MMS — the ten-line path.
 //!
-//! [`crate::proto::mms::association::Association`] is the state machine; this is the socket
-//! around it. Connect, ask, get a typed answer:
+//! [`Client::connect`] dials TCP. [`Client::with_transport`] drives the same MMS services
+//! over an existing blocking stream, including the plaintext side of a verified TLS connection.
 //!
 //! ```no_run
 //! use iec61850_kit::client::Client;
@@ -257,10 +257,11 @@ impl ClientConfig {
     }
 }
 
-/// A blocking MMS client: one association, one socket.
+/// A blocking MMS client: one association on a blocking duplex stream.
 #[derive(Debug)]
-pub struct Client {
-    stream: TcpStream,
+pub struct Client<S = TcpStream> {
+    stream: Option<S>,
+    set_read_timeout: fn(&mut S, Duration) -> std::io::Result<()>,
     assoc: Association,
     limits: Limits,
     /// What the server sent while something else was being waited for.
@@ -299,26 +300,8 @@ impl Client {
         let target =
             with_port.to_socket_addrs().map_err(|e| Error::Io(format!("{addr}: {e}")))?.next().ok_or_else(|| Error::Io(format!("{addr}: no address")))?;
         let stream = TcpStream::connect_timeout(&target, cfg.connect_timeout).map_err(|e| Error::Io(format!("{addr}: {e}")))?;
-        stream.set_nodelay(true).map_err(|e| Error::Io(e.to_string()))?;
-        let limits = cfg.association.limits;
-        let mut c = Client {
-            stream,
-            assoc: Association::client(cfg.association.clone()),
-            limits,
-            unsolicited: VecDeque::new(),
-            assembler: ReportAssembler::new(8),
-            ctl_num: 0,
-            epoch: StdInstant::now(),
-            rx: alloc_buffer(),
-            request_timeout: request_timeout(&cfg.association),
-            origin: Some((String::from(addr), cfg.clone())),
-            serving: None,
-            progress: None,
-        };
-        let now = c.now();
-        c.assoc.start(now)?;
-        c.flush()?;
-        c.pump_while(|a| !a.is_established(), Duration::from_millis(cfg.association.connect_timeout_ms))?;
+        let mut c = Self::from_stream(stream, cfg)?;
+        c.origin = Some((String::from(addr), cfg.clone()));
         Ok(c)
     }
 
@@ -355,41 +338,46 @@ impl Client {
     /// Fails for a client built from a socket somebody else opened: there is nothing to dial.
     pub fn reconnect(&mut self, backoff: &Backoff) -> Result<()> {
         let (addr, cfg) = self.origin.clone().ok_or(Error::InvalidValue("this client was built from a socket, so it has nowhere to reconnect to"))?;
-        let fresh = Client::connect_retrying(&addr, &cfg, backoff)?;
-        // Everything that described the old association goes with it; the queues are the
-        // point — an unsolicited report from a dead association is not news about the new one.
-        self.stream = fresh.stream;
-        self.assoc = fresh.assoc;
-        self.limits = fresh.limits;
-        self.request_timeout = fresh.request_timeout;
-        // The new association's deadlines were set against the new client's origin, so the
-        // origin has to come with it. Keeping the old one would put every timer this
-        // handshake set in the past.
-        self.epoch = fresh.epoch;
-        self.unsolicited.clear();
-        self.assembler = ReportAssembler::new(8);
-        self.ctl_num = 0;
+        *self = Self::connect_retrying(&addr, &cfg, backoff)?;
         Ok(())
     }
 
-    /// Whether the association is still answering, by the cheapest question there is.
-    ///
-    /// A TCP connection that has lost its peer looks open until something is written to it,
-    /// so "is the socket up" is not the same question as "is the server there". A `Status`
-    /// round trip is: it needs no name, no model and no data set, and it exercises all six
-    /// layers. This is what a supervision loop calls between reports.
-    pub fn is_alive(&mut self) -> bool {
-        self.assoc.is_established() && self.status(false).is_ok()
-    }
-
-    /// Take a connected socket that is already carrying MMS — a TLS stream's plaintext side,
-    /// or a connection an accept loop handed over. `stream` must be at the start of the
-    /// TPKT stream.
+    /// Associate over an already connected TCP socket at the first TPKT byte.
     pub fn from_stream(stream: TcpStream, cfg: &ClientConfig) -> Result<Client> {
         stream.set_nodelay(true).map_err(|e| Error::Io(e.to_string()))?;
+        Self::with_transport(stream, cfg, |tcp, timeout| tcp.set_read_timeout(Some(timeout)))
+    }
+
+    /// Connect to an IED the way its SCD says to.
+    ///
+    /// The address, the selectors and the ACSE names all come out of
+    /// `Communication/ConnectedAP`, so an association is engineered once, in the file, and
+    /// never typed a second time into code. `host` overrides the file's `IP` when the server
+    /// is reached through a gateway or a test bench; pass `None` to use what the file says.
+    #[cfg(feature = "scl")]
+    pub fn connect_scl(scl: &crate::scl::Scl<'_>, ied: &str, access_point: Option<&str>, host: Option<&str>) -> Result<Client> {
+        let (cfg, ip) = ClientConfig::from_scl(scl, ied, access_point)?;
+        let host = match (host, ip.as_deref()) {
+            (Some(h), _) => String::from(h),
+            (None, Some(ip)) => String::from(ip),
+            (None, None) => return Err(Error::NotFound("the SCL file gives this access point no IP address")),
+        };
+        Client::connect_with(&host, &cfg)
+    }
+}
+
+impl<S: Read + Write> Client<S> {
+    /// Associate over an application-supplied stream at the first plaintext TPKT byte.
+    ///
+    /// For TLS, finish peer verification before calling this method. The callback must
+    /// bound the next blocking read by the supplied duration. Set a write timeout on the
+    /// underlying transport before handoff. Pass a mutable borrow to retain ownership for
+    /// TLS shutdown after [`Self::release`].
+    pub fn with_transport(stream: S, cfg: &ClientConfig, set_read_timeout: fn(&mut S, Duration) -> std::io::Result<()>) -> Result<Self> {
         let limits = cfg.association.limits;
         let mut c = Client {
-            stream,
+            stream: Some(stream),
+            set_read_timeout,
             assoc: Association::client(cfg.association.clone()),
             limits,
             unsolicited: VecDeque::new(),
@@ -410,21 +398,14 @@ impl Client {
         Ok(c)
     }
 
-    /// Connect to an IED the way its SCD says to.
+    /// Whether the association is still answering, by the cheapest question there is.
     ///
-    /// The address, the selectors and the ACSE names all come out of
-    /// `Communication/ConnectedAP`, so an association is engineered once, in the file, and
-    /// never typed a second time into code. `host` overrides the file's `IP` when the server
-    /// is reached through a gateway or a test bench; pass `None` to use what the file says.
-    #[cfg(feature = "scl")]
-    pub fn connect_scl(scl: &crate::scl::Scl<'_>, ied: &str, access_point: Option<&str>, host: Option<&str>) -> Result<Client> {
-        let (cfg, ip) = ClientConfig::from_scl(scl, ied, access_point)?;
-        let host = match (host, ip.as_deref()) {
-            (Some(h), _) => String::from(h),
-            (None, Some(ip)) => String::from(ip),
-            (None, None) => return Err(Error::NotFound("the SCL file gives this access point no IP address")),
-        };
-        Client::connect_with(&host, &cfg)
+    /// A TCP connection that has lost its peer looks open until something is written to it,
+    /// so "is the socket up" is not the same question as "is the server there". A `Status`
+    /// round trip is: it needs no name, no model and no data set, and it exercises all six
+    /// layers. This is what a supervision loop calls between reports.
+    pub fn is_alive(&mut self) -> bool {
+        self.assoc.is_established() && self.status(false).is_ok()
     }
 
     /// The `ctlModel` of a controllable object, read from the server.
@@ -733,8 +714,14 @@ impl Client {
         }
     }
 
-    /// Release the association in an orderly way and close the socket.
+    /// Release the MMS association and drop its stream or borrow.
     pub fn release(&mut self) -> Result<()> {
+        let result = self.release_association();
+        self.stream.take();
+        result
+    }
+
+    fn release_association(&mut self) -> Result<()> {
         if self.assoc.is_established() {
             let now = self.now();
             self.assoc.release(now)?;
@@ -743,7 +730,6 @@ impl Client {
             // is over either way, and a server that never answers must not hang a tool.
             let _ = self.pump_while(|a| !matches!(a.state(), crate::proto::mms::association::State::Closed), Duration::from_secs(2));
         }
-        let _ = self.stream.shutdown(std::net::Shutdown::Both);
         Ok(())
     }
 
@@ -983,8 +969,9 @@ impl Client {
     /// Read once and feed the association; `Ok(())` even when nothing arrived in time.
     fn read_once(&mut self, timeout: Duration) -> Result<()> {
         let timeout = timeout.max(Duration::from_millis(1));
-        self.stream.set_read_timeout(Some(timeout)).map_err(|e| Error::Io(e.to_string()))?;
-        match self.stream.read(&mut self.rx) {
+        let stream = self.stream.as_mut().ok_or(Error::InvalidValue("association released"))?;
+        (self.set_read_timeout)(stream, timeout).map_err(|e| Error::Io(e.to_string()))?;
+        match stream.read(&mut self.rx) {
             Ok(0) => {
                 self.assoc.abort();
                 Err(Error::Io(String::from("the peer closed the connection")))
@@ -999,7 +986,7 @@ impl Client {
                 self.rx = buf;
                 Ok(())
             }
-            Err(e) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
+            Err(e) if matches!(e.kind(), std::io::ErrorKind::Interrupted | std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
                 let now = self.now();
                 self.assoc.on_timeout(now);
                 Ok(())
@@ -1022,13 +1009,11 @@ impl Client {
     }
 
     fn flush(&mut self) -> Result<()> {
+        let stream = self.stream.as_mut().ok_or(Error::InvalidValue("association released"))?;
         while let Some(packet) = self.assoc.poll_transmit() {
-            // The association owns the buffer it lends; copying is what lets the socket be
-            // borrowed mutably at the same time, and an MMS request is not a hot path.
-            let packet = packet.to_vec();
-            self.stream.write_all(&packet).map_err(|e| Error::Io(e.to_string()))?;
+            stream.write_all(packet).map_err(|e| Error::Io(e.to_string()))?;
         }
-        self.stream.flush().map_err(|e| Error::Io(e.to_string()))
+        stream.flush().map_err(|e| Error::Io(e.to_string()))
     }
 
     /// The association's notion of now, on a monotonic clock this client owns.

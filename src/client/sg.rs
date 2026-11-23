@@ -48,7 +48,7 @@ pub struct Sgcb {
 
 const SGCB_ATTRIBUTES: &[&str] = &["NumOfSG", "ActSG", "EditSG", "CnfEdit", "LActTm", "ResvTms"];
 
-impl Client {
+impl<S: std::io::Read + std::io::Write> Client<S> {
     /// `GetSGCBValues`: read the setting group control block of a logical device.
     ///
     /// `reference` is the block — `IED1LD0/LLN0$SP$SGCB`, or `IED1LD0/LLN0.SGCB`.

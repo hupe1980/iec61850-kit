@@ -23,6 +23,31 @@ IED1 on 127.0.0.1:102 — Edition 2.1 — logical device(s) IED1LD0
 serving; ^C to stop
 ```
 
+## Serve an established TLS connection
+
+Build one listener-free server with `Server::new(ied, &config)`. Share it across connection
+workers so all clients see the same model, association limit and report queues. In each
+worker, finish the TLS handshake under your application's certificate policy, then serve
+one connection on the calling thread:
+
+```rust
+use std::{io::Write, time::Duration};
+
+// tls is an established rustls::StreamOwned<ServerConnection, TcpStream>.
+let peer = tls.sock.peer_addr()?.ip();
+tls.sock.set_write_timeout(Some(Duration::from_secs(5)))?;
+server.serve_stream(&mut tls, peer, |stream, interval|
+    stream.sock.set_read_timeout(Some(interval)))?;
+tls.conn.send_close_notify();
+tls.flush()?;
+```
+
+The read interval lets the server deliver queued reports while the peer is idle. Supply
+the peer IP from trusted transport metadata for the report control block's owner. TLS
+peer authentication and MMS association authentication have separate configuration.
+A full server returns `Error::LimitExceeded` before reading the stream. Bound the number
+and duration of TLS handshakes in your acceptor as well.
+
 ## The namespace
 
 IEC 61850-8-1 maps the model onto MMS named variables: the logical device is the domain, the
@@ -429,10 +454,6 @@ what `Acsi::drain_frames` hands over.
 | `Ied` | what a name holds, plus data sets and control blocks |
 | `Acsi` | a request in, an owned answer out — sans-IO |
 | `Server` | associations and threads |
-
-## Limits
-
-Not implemented: TLS (IEC 62351-3) and unicast sampled values.
 
 The server is tested against this crate's client, Wireshark, and the clients of libiec61850,
 IEC61850bean and csp0924's crates — see [Verification](@/docs/verification.md).

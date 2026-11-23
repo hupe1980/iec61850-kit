@@ -2703,3 +2703,111 @@ mod set_file {
         }
     }
 }
+
+#[test]
+fn tls_stream_serves_the_ied_over_a_verified_connection() {
+    use rustls::{ClientConnection, RootCertStore, ServerConnection, StreamOwned};
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::Arc;
+
+    let identity = rcgen::generate_simple_self_signed(vec![String::from("localhost")]).unwrap();
+    let cert = identity.cert.der().clone();
+    let mut roots = RootCertStore::empty();
+    roots.add(cert.clone()).unwrap();
+    let server_tls = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert], rustls::pki_types::PrivatePkcs8KeyDer::from(identity.signing_key.serialize_der()).into())
+        .unwrap();
+    let client_tls = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = Server::new(Ied::from_scl(RELAY, None).unwrap(), &iec61850_kit::server::ServerConfig::default());
+    let handle = server.handle();
+    let worker = std::thread::spawn(move || {
+        let (socket, peer) = listener.accept().unwrap();
+        socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        socket.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+        let mut tls = StreamOwned::new(ServerConnection::new(Arc::new(server_tls)).unwrap(), socket);
+        tls.conn.complete_io(&mut tls.sock).unwrap();
+        server.serve_stream(&mut tls, peer.ip(), |s, t| s.sock.set_read_timeout(Some(t))).unwrap();
+        tls.conn.send_close_notify();
+        std::io::Write::flush(&mut tls).unwrap();
+    });
+    let socket = TcpStream::connect(addr).unwrap();
+    socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    socket.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+    let mut tls = StreamOwned::new(ClientConnection::new(Arc::new(client_tls), "localhost".try_into().unwrap()).unwrap(), socket);
+    tls.conn.complete_io(&mut tls.sock).unwrap();
+    let mut client = Client::with_transport(&mut tls, &iec61850_kit::client::ClientConfig::default(), |s, t| s.sock.set_read_timeout(Some(t))).unwrap();
+    assert_eq!(client.identify().unwrap().vendor, "hupe1980");
+    let rcb = "IED1LD0/LLN0$RP$urcb";
+    client.enable_rcb(rcb, Fc::RP, &iec61850_kit::client::RcbSettings::new()).unwrap();
+    assert_eq!(client.read("IED1LD0/LLN0$RP$urcb$Owner", Fc::RP).unwrap(), Value::OctetString(vec![127, 0, 0, 1]));
+    handle.txn().set("IED1LD0/PTRC1$ST$Tr$general", Value::Boolean(true)).commit();
+    let report = client.next_report(Duration::from_secs(2)).unwrap().unwrap();
+    assert_eq!(report.rpt_id, rcb);
+    assert_eq!(handle.associations(), 1);
+    client.release().unwrap();
+    worker.join().unwrap();
+    assert_eq!(handle.associations(), 0);
+}
+
+#[test]
+fn stream_admission_releases_the_slot_on_error() {
+    use iec61850_kit::server::ServerConfig;
+    use std::io::{Cursor, Error, ErrorKind};
+    use std::net::{IpAddr, Ipv4Addr};
+    let server = Server::new(Ied::from_scl(RELAY, None).unwrap(), &ServerConfig { max_associations: 1, ..Default::default() });
+    let peer = IpAddr::V4(Ipv4Addr::LOCALHOST);
+    let result = server.serve_stream(Cursor::new(Vec::new()), peer, |_, _| {
+        assert_eq!(server.handle().associations(), 1);
+        let second = server.serve_stream(Cursor::new(Vec::new()), peer, |_, _| unreachable!());
+        assert!(matches!(second, Err(iec61850_kit::Error::LimitExceeded { .. })));
+        Err(Error::from(ErrorKind::ConnectionReset))
+    });
+    assert!(matches!(result, Err(iec61850_kit::Error::Io(_))));
+    assert_eq!(server.handle().associations(), 0);
+    server.serve_stream(Cursor::new(Vec::new()), peer, |_, _| Ok(())).unwrap();
+}
+
+#[test]
+fn stream_handshake_expires_when_the_peer_is_silent() {
+    use iec61850_kit::client::ClientConfig;
+    use std::net::{TcpListener, TcpStream};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (_silent_peer, _) = listener.accept().unwrap();
+    // Backstop the test even if the callback stops installing the requested deadline.
+    socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    let mut cfg = ClientConfig::default();
+    cfg.association.connect_timeout_ms = 40;
+    let start = std::time::Instant::now();
+    let error = Client::with_transport(socket, &cfg, |s, t| s.set_read_timeout(Some(t))).unwrap_err();
+    assert!(matches!(error, iec61850_kit::Error::Io(_)));
+    assert!(start.elapsed() < Duration::from_secs(2));
+}
+
+#[test]
+fn stream_server_expires_an_idle_handshake_and_recovers_capacity() {
+    use iec61850_kit::server::ServerConfig;
+    use std::net::{TcpListener, TcpStream};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    // Close the peer if the deadline regresses so the test fails instead of hanging.
+    let (finished, wait) = std::sync::mpsc::channel::<()>();
+    let backstop = std::thread::spawn(move || {
+        let _ = wait.recv_timeout(Duration::from_secs(3));
+        drop(peer);
+    });
+    let (socket, addr) = listener.accept().unwrap();
+    let mut cfg = ServerConfig::default();
+    cfg.association.connect_timeout_ms = 40;
+    let server = Server::new(Ied::from_scl(RELAY, None).unwrap(), &cfg);
+    let start = std::time::Instant::now();
+    let err = server.serve_stream(socket, addr.ip(), |stream, interval| stream.set_read_timeout(Some(interval))).unwrap_err();
+    drop(finished);
+    backstop.join().unwrap();
+    assert!(matches!(err, iec61850_kit::Error::Io(ref reason) if reason.contains("timed out")));
+    assert!(start.elapsed() < Duration::from_secs(2));
+    assert_eq!(server.handle().associations(), 0);
+}

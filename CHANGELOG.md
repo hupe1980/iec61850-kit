@@ -12,6 +12,17 @@ matter to a device on the other end of a substation LAN rather than to a compile
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-23
+
+### Added
+
+- Serve a single MMS association on an application-owned stream with `Server::serve_stream`,
+  or connect through an existing TLS tunnel with `Client::with_transport`.
+
+### Fixed
+
+- Silent peers now time out during the server handshake and release their association slots.
+
 ## [0.5.0] — 2026-11-22
 
 The crate is renamed from `iec61850-rs` to **`iec61850-kit`**; the code is otherwise 0.4.0.
@@ -300,7 +311,8 @@ First release. GOOSE and Sampled Values with sans-IO publishers and subscribers,
 and MMS PDUs, the association state machine in both roles, a blocking MMS client and server,
 SCL loading and validation, pcap tooling and the `ied` command line.
 
-[Unreleased]: https://github.com/hupe1980/iec61850-kit/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/hupe1980/iec61850-kit/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.2.0...v0.3.0
