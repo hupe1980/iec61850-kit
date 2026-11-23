@@ -518,3 +518,14 @@ fn a_setting_group_is_selected_written_and_confirmed_in_that_order() {
     assert_eq!(c.read_sgcb(SGCB_REFERENCE).expect("read back").act_sg, Some(3));
     c.release().unwrap();
 }
+
+#[test]
+fn tariff_header_requires_one_read_result_per_named_field() {
+    use iec61850_kit::client::TariffProfile;
+    let addr = common::spawn_mms_server_with(common::ServerBehaviour { short_read: true, ..common::ServerBehaviour::default() });
+    let mut client = Client::connect(&addr).unwrap();
+    assert_eq!(
+        client.read_tariff_schedule("IED1LD0/FSCH1", TariffProfile::new("ct/kWh"), 0..86_400),
+        Err(iec61850_kit::Error::InvalidValue("server returned the wrong number of Read results"))
+    );
+}

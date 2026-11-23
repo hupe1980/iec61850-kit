@@ -49,7 +49,7 @@ a = "Yes. The protocol cores, including the MMS association state machine, build
 
 [[extra.faq]]
 q = "How fast is it, and does it allocate?"
-a = "It allocates nothing once running: a counting allocator asserts zero allocations across a thousand GOOSE retransmissions and a second of IEC 61869-9 publishing at 2400 frames per second. No latency figure is claimed, because timing has not been measured on reference hardware."
+a = "Allocation tests cover 1,000 GOOSE retransmissions and one second of IEC 61869-9 publishing at 2,400 frames per second. Both run without allocating in steady state."
 
 [[extra.faq]]
 q = "Does it do the IEC 62351 security extensions?"
@@ -217,7 +217,8 @@ ied sv monitor stream.pcap --scd bay.scd             # the real subscriber, chan
 ied goose sniff capture.pcap                         # gocbRef, stNum/sqNum, TAL, simulation bit
 ied goose sniff --iface eth1                         # …or off the wire
 ied mms sniff station.pcap                           # six OSI layers: association, services, values
-ied mms browse 10.0.0.5                              # a live server: devices, data, data sets
+ied mms browse 10.0.0.5                              # devices, data and data sets
+ied mms tariff 10.0.0.5 IED1LD0/GridFSCH1 1774738800 1774821600 ct/kWh > tariff.tsv
 ied mms report 10.0.0.5 --rcb IED1LD0/LLN0.urcb01 --gi   # enable a report and decode it
 ied mms control 10.0.0.5 IED1LD0/CSWI1.Pos true      # operate, under any control model
 ied mms get 10.0.0.5 COMTRADE/rec0001.cfg out.cfg    # pull a record off an IED

@@ -22,6 +22,7 @@ These pages are the guide. The per-item API reference lives on
 | Publish or subscribe to protection signals | [GOOSE](@/docs/goose.md) |
 | Build a merging unit, or consume one | [Sampled Values](@/docs/sampled-values.md) |
 | Browse, read, report and control over the station bus | [MMS](@/docs/mms.md) |
+| Read a daily grid tariff | [FSCH schedules](@/docs/mms.md#daily-grid-tariffs) |
 | Serve a model from an SCL file — be the IED | [Server](@/docs/server.md) |
 | Configure any of it from an ICD or SCD file | [SCL and the IED model](@/docs/scl.md) |
 | Do all of that from a shell | [Command line](@/docs/cli.md) |

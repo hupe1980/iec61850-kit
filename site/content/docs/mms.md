@@ -230,6 +230,34 @@ c.create_data_set("IED1LD0/LLN0$dsTemp", &[("IED1LD0/PTRC1.Tr.general", Fc::ST)]
 c.delete_data_set("IED1LD0/LLN0$dsTemp")?;
 ```
 
+## Daily grid tariffs
+
+Read a fixed-start FSCH schedule using the price unit agreed with the grid operator.
+Pass the UTC instants of two consecutive local midnights. The reader checks that the
+selected start and every interval together cover that exact window.
+
+```rust
+use iec61850_kit::client::TariffProfile;
+
+// Europe/Berlin, 29 March 2026: 23 hours, or 92 quarter-hour slots.
+let profile = TariffProfile::new("ct/kWh");
+let day = client.read_tariff_schedule("IED1LD0/GridFSCH1", profile, 1_774_738_800..1_774_821_600)?;
+for slot in day.slots {
+    println!("{}..{}  {} {}", slot.utc.start, slot.utc.end, slot.price, day.price_unit);
+}
+```
+
+The default mapping reads `StrTm1.setTm`, `NumEntr.setVal`, `SchdIntv.setVal` and
+`ValASG001.setMag.f` onwards under SP. Set `start_object`, `first_price` and
+`settings_fc` to match the IED. For example, `ValING1` selects numbered integer
+`setVal` prices. The interval uses `SchdIntv.units` under CF. The price unit comes
+from the contract and values keep their original scale.
+
+The reader accepts up to 1,500 whole-second intervals over a 23–25 hour day. It reads
+only the selected absolute start. Use a stable published schedule: the closing
+metadata check detects a changed header, but an IED can edit prices in place without
+changing that header.
+
 ## Is it there?
 
 `Status` needs no model; an answer proves all six layers are alive.

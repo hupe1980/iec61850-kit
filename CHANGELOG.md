@@ -12,6 +12,16 @@ matter to a device on the other end of a substation LAN rather than to a compile
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-23
+
+### Added
+
+- Read fixed-start daily FSCH tariffs with `Client::read_tariff_schedule` or `ied mms tariff`.
+
+### Fixed
+
+- MMS reads reject replies with a different number of results than requested variables.
+
 ## [0.6.0] — 2026-11-23
 
 ### Added
@@ -311,7 +321,8 @@ First release. GOOSE and Sampled Values with sans-IO publishers and subscribers,
 and MMS PDUs, the association state machine in both roles, a blocking MMS client and server,
 SCL loading and validation, pcap tooling and the `ied` command line.
 
-[Unreleased]: https://github.com/hupe1980/iec61850-kit/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/hupe1980/iec61850-kit/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.3.0...v0.4.0

@@ -220,6 +220,8 @@ mod mms_server {
         pub stale_termination: bool,
         /// Split every report into one segment per data-set member.
         pub segment_reports: bool,
+        /// Omit the last result of a named-variable read.
+        pub short_read: bool,
     }
 
     struct Server {
@@ -708,6 +710,9 @@ mod mms_server {
                 // Anything else is a measurement.
                 _ => Some(Value::Float32(1.5)),
             });
+        }
+        if s.behaviour.short_read {
+            owned.pop();
         }
         let encoded: Vec<Option<Vec<u8>>> = owned.iter().map(|v| v.as_ref().map(|v| Value::encode_all(std::slice::from_ref(v)).unwrap())).collect();
         let results: Vec<AccessResult<'_>> = encoded

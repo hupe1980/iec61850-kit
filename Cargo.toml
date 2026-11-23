@@ -1,6 +1,6 @@
 [package]
 name = "iec61850-kit"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.90"
 authors = ["hupe1980"]
@@ -172,6 +172,11 @@ required-features = ["cli"]
 name = "mms_client"
 path = "tests/mms_client.rs"
 required-features = ["client", "scl"]
+
+[[test]]
+name = "tariff"
+path = "tests/tariff.rs"
+required-features = ["client", "server"]
 
 [[test]]
 name = "mms_server"

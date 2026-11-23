@@ -383,6 +383,17 @@ because a conforming server refuses writes to `ST` and `MX` (IEC 61850-7-2 §5.7
 | `--scd`, `--ied` | — | Addressing from the engineering file |
 | `--local-tsel`, `--remote-tsel` | `0001` | OSI transport selectors |
 
+### Export an FSCH tariff
+
+```bash
+ied mms tariff 10.0.0.5 IED1LD0/GridFSCH1 1774738800 1774821600 ct/kWh > tariff.tsv
+```
+
+The arguments are the delivery start and exclusive end in UTC Unix seconds, followed
+by the contracted unit. Output columns are `start_utc_s`, `end_utc_s`, `price` and
+`unit`. Use `--start-object`, `--first-price` and `--fc` to match the engineered
+[FSCH mapping](@/docs/mms.md#daily-grid-tariffs).
+
 ## Summarise a capture
 
 ```bash
