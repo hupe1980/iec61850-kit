@@ -1,6 +1,6 @@
 [package]
 name = "iec61850-kit"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.90"
 authors = ["hupe1980"]
@@ -38,10 +38,9 @@ mms = []
 scl = ["std", "dep:roxmltree"]
 # Reading and writing classic pcap files (needs std).
 pcap = ["std"]
-# A blocking MMS client over TCP: the association state machine plus a socket, no runtime.
+# Blocking MMS client over TCP or an application-owned stream.
 client = ["std", "mms"]
-# A blocking MMS server over TCP: the association in the server role, the IED model from SCL
-# as the served namespace, and the ACSI services above it. No runtime.
+# Blocking MMS server for an SCL model, over TCP or an application-owned stream.
 server = ["std", "mms", "scl"]
 # A durable `LogStore` on redb: the server's log survives a restart.
 log-redb = ["server", "dep:redb"]
@@ -61,7 +60,10 @@ rawether = { version = "0.2", optional = true }
 proptest = "1.11"
 # The log-store tests write rows past the store to prove a corrupt one is refused.
 redb = "4.5"
-# The interop peers run as containers; no TLS stack is pulled in.
+# Generate an ephemeral localhost identity for the MMS stream integration test.
+rcgen = { version = "0.14", default-features = false, features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+# The interop peers run as containers.
 testcontainers = { version = "0.28", default-features = false, features = ["blocking"] }
 
 [lints.rust]

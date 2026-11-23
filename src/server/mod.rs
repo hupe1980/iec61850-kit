@@ -4,6 +4,8 @@
 //! is the whole of it. What a client can browse, read and write is exactly what the
 //! engineering file says the IED has, so the server cannot drift from its own SCD.
 //!
+//! [`Server::new`] creates a listener-free server for [`Server::serve_stream`].
+//!
 //! Four layers, each testable without the one below it:
 //!
 //! | | |

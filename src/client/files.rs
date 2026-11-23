@@ -83,7 +83,7 @@ pub struct FileEntry {
     pub last_modified: Option<String>,
 }
 
-impl Client {
+impl<S: std::io::Read + std::io::Write> Client<S> {
     /// List the server's files.
     ///
     /// `specification` restricts the listing the way the server understands it — a directory

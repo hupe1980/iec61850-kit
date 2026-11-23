@@ -108,7 +108,7 @@ impl Lcb {
 /// [`Lcb::oldest`] is the resume point and it comes from exactly this attribute.
 const LCB_ATTRIBUTES: &[&str] = &["LogEna", "LogRef", "DatSet", "OldEntrTm", "NewEntrTm", "OldEnt", "NewEnt", "TrgOps", "IntgPd", "OldEntr", "NewEntr"];
 
-impl Client {
+impl<S: std::io::Read + std::io::Write> Client<S> {
     /// Read a log control block — `GetLCBValues` and `GetLogStatusValues` in one round trip.
     ///
     /// The two ACSI services read the same variable; splitting them into two reads would cost

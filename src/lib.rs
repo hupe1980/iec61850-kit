@@ -93,7 +93,8 @@
 //! feature, on live Linux and macOS interfaces; on the station bus, the six OSI layers, the
 //! association over them and both ends above it are verified against a real capture, against
 //! `tshark`, against each other over a socket, and against libiec61850's client and server.
-//! Not included: TLS and the IEC 62351-6 authentication extension. The API changes between
+//! Applications can supply an established TLS stream to the blocking MMS adapters.
+//! Not included: a built-in IEC 62351-3 TLS profile and the IEC 62351-6 authentication extension. The API changes between
 //! minor versions, and nothing here has been through a conformance laboratory.
 //!
 //! The guide at <https://hupe1980.github.io/iec61850-kit/> covers the protocols themselves,

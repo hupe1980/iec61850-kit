@@ -158,7 +158,7 @@ What it handles:
 
 ## The client
 
-`client::Client` is that state machine plus a blocking TCP socket. It needs no async runtime.
+`client::Client` is that state machine on a blocking duplex stream. It needs no async runtime.
 
 ```rust
 use iec61850_kit::{Fc, client::Client};
@@ -182,6 +182,32 @@ let both = c.read_many(&[("IED1LD0/MMXU1.TotW.mag.f", Fc::MX),
 c.write("IED1LD0/CSWI1.Pos.ctlModel", Fc::CF, &Value::Integer(1))?;   // a setting, not a status
 c.release()?;
 ```
+
+### Use an established TLS connection
+
+Pass the plaintext side of a verified TLS connection to `Client::with_transport` before
+reading or writing any TPKT bytes. For a rustls `StreamOwned` over TCP, the timeout callback
+sets the socket's next read budget as handshake, request and report deadlines change.
+
+```rust
+use iec61850_kit::client::{Client, ClientConfig};
+use std::{io::Write, time::Duration};
+
+// tls is an established rustls::StreamOwned<ClientConnection, TcpStream>.
+tls.sock.set_write_timeout(Some(Duration::from_secs(5)))?;
+let mut client = Client::with_transport(&mut tls, &ClientConfig::default(),
+    |stream, timeout| stream.sock.set_read_timeout(Some(timeout)))?;
+let identity = client.identify()?;
+client.release()?;
+tls.conn.send_close_notify();
+tls.flush()?;
+```
+
+The application owns certificate verification, TLS handshake deadlines and TLS shutdown.
+To reconnect, establish and verify a fresh tunnel and construct a new client.
+See [serving a TLS stream](@/docs/server.md#serve-an-established-tls-connection) for the other end.
+
+### Client services
 
 - **`GetNameList` is paged**: `moreFollows` is followed with `continueAfter`.
 - **Nothing unsolicited is dropped**: reports and command terminations share one queue, which
@@ -451,7 +477,3 @@ service in the turn it arrives.
 
 The server side is on [its own page](@/docs/server.md); testing is described in
 [Verification](@/docs/verification.md).
-
-## Limits
-
-Not implemented: unsolicited `Status`, TLS (IEC 62351-3), and an async client.

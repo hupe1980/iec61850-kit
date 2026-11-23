@@ -34,8 +34,9 @@ encoders checked against real substation captures frame for frame.
 | **`ied`** | `sim`, `mu`, `sv monitor`, `goose sniff`, `mms sniff`, `goose publish`, `mms status/identify/browse/read/write/rcb/report/control/type/files/get/put/log/sg`, `pcap info`, `scl validate/show/subs/edit` — capture files or `--iface` |
 | Supporting | Panic-free BER codec, the IEC 61850 wire types, classic pcap reader and writer |
 
-**Not included:** TLS (IEC 62351-3), the IEC 62351-6 authentication extension, routable
-GOOSE/SV (IEC TR 61850-90-5), unicast SV, and encoding fixed-length GOOSE (decoding it works).
+For MMS over an existing TLS tunnel, use `Client::with_transport` on the client and
+`Server::new` with `serve_stream` on the IED. Both accept a blocking duplex stream.
+[Client guide](https://hupe1980.github.io/iec61850-kit/docs/mms/#use-an-established-tls-connection) · [Server guide](https://hupe1980.github.io/iec61850-kit/docs/server/#serve-an-established-tls-connection)
 
 ## Install
 
