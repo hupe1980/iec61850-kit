@@ -256,7 +256,29 @@ from the contract and values keep their original scale.
 The reader accepts up to 1,500 whole-second intervals over a 23–25 hour day. It reads
 only the selected absolute start. Use a stable published schedule: the closing
 metadata check detects a changed header, but an IED can edit prices in place without
-changing that header.
+changing that header. `day.start.quality` carries the provider's clock flags and
+accuracy from the verified timestamp. The caller decides which qualities to accept.
+
+On an existing async MMS association, drive `TariffRead` with your own field reader.
+Issue one MMS Read per batch. Return its decoded values in order or pass its error
+to `accept`, which reduces the batch on a local PDU-size refusal.
+
+```rust
+use iec61850_kit::client::TariffRead;
+use std::ops::ControlFlow;
+
+let mut read = TariffRead::new(node, profile, window)?;
+let day = loop {
+    let response = driver.read_fields(&read.fields()).await;
+    match read.accept(response)? {
+        ControlFlow::Continue(next) => read = next,
+        ControlFlow::Break(day) => break day,
+    }
+};
+```
+
+Dropping the read discards accumulated prices. The association driver handles any
+outstanding invoke ID when its request is cancelled.
 
 ## Is it there?
 

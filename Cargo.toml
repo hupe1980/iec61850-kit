@@ -1,6 +1,6 @@
 [package]
 name = "iec61850-kit"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 rust-version = "1.90"
 authors = ["hupe1980"]
@@ -57,6 +57,7 @@ redb = { version = "4.5", optional = true }
 rawether = { version = "0.2", optional = true }
 
 [dev-dependencies]
+tokio = { version = "1", features = ["io-util", "macros", "rt", "sync"] }
 proptest = "1.11"
 # The log-store tests write rows past the store to prove a corrupt one is refused.
 redb = "4.5"
