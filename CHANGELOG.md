@@ -12,6 +12,18 @@ matter to a device on the other end of a substation LAN rather than to a compile
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-11-24
+
+### Added
+
+- FSCH schedules expose the verified start timestamp and its clock quality in `TariffSchedule::start`.
+- Drive an FSCH read on an existing async MMS association with `TariffRead`.
+
+### Changed
+
+- ⚠ Both readers keep the smaller batch size after an MMS request exceeds the peer's PDU limit.
+- Code that constructs or exhaustively destructures `TariffSchedule` must include the new `start` field or use a rest pattern when destructuring.
+
 ## [0.7.0] — 2026-11-23
 
 ### Added
@@ -321,7 +333,8 @@ First release. GOOSE and Sampled Values with sans-IO publishers and subscribers,
 and MMS PDUs, the association state machine in both roles, a blocking MMS client and server,
 SCL loading and validation, pcap tooling and the `ied` command line.
 
-[Unreleased]: https://github.com/hupe1980/iec61850-kit/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/hupe1980/iec61850-kit/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/hupe1980/iec61850-kit/compare/v0.4.0...v0.5.0

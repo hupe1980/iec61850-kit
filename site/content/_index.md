@@ -230,6 +230,8 @@ ied scl subs bay.scd IED2                            # every ExtRef resolved to 
 tool says about a frame is what a subscribing IED would decide. CI runs `ied mu` into
 `ied sv monitor` and `ied sim` against `ied mms browse` on every push, with no device.
 
+Read daily FSCH tariffs and their start timestamp quality over an existing MMS association. [Tariff guide](@/docs/mms.md#daily-grid-tariffs)
+
 </div>
 </section>
 

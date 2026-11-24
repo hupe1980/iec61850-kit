@@ -44,7 +44,7 @@ pub use files::FileEntry;
 pub use log::{Lcb, LogEntry, LogPage};
 pub use rcb::{Rcb, RcbSettings};
 pub use sg::Sgcb;
-pub use tariff::{TariffProfile, TariffSchedule, TariffSlot};
+pub use tariff::{TariffProfile, TariffRead, TariffSchedule, TariffSlot};
 
 // The report types belong to the codec; re-exported here because a client user reaches for
 // them without needing to know which layer they came from.

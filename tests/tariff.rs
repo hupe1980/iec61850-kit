@@ -8,6 +8,9 @@ use iec61850_kit::server::{Ied, Server, ServerHandle};
 use iec61850_kit::{Error, Fc, TimeQuality, UtcTime};
 use std::fmt::Write as _;
 
+#[path = "tariff/driver.rs"]
+mod driver;
+
 const NODE: &str = "IED1LD0/GridFSCH1";
 const PROFILE: TariffProfile<'static> = TariffProfile::new("ct/kWh");
 
@@ -159,4 +162,61 @@ fn tariff_reads_active_group_settings() {
     let day = client.read_tariff_schedule(NODE, TariffProfile { settings_fc: Fc::SG, ..PROFILE }, 0..86_400).unwrap();
     assert_eq!(day.slots.len(), 24);
     assert_eq!(day.slots[0].price.to_bits(), (-1.0_f64).to_bits());
+}
+
+#[test]
+fn tariff_preserves_provider_clock_quality() {
+    let (addr, handle) = relay(86_400, 3, 480, 1);
+    let mut client = Client::connect(&addr).unwrap();
+    for quality in [TimeQuality::SYNCHRONIZED, TimeQuality::UNSYNCHRONIZED, TimeQuality { clock_failure: true, accuracy: 17, ..TimeQuality::SYNCHRONIZED }] {
+        let start = UtcTime::from_unix(86_400, 0, quality);
+        assert_eq!(handle.txn().set(&format!("{NODE}$SP$StrTm1$setTm"), Value::UtcTime(start)).commit(), [Ok(())]);
+        let schedule = client.read_tariff_schedule(NODE, TariffProfile { first_price: "ValING1", ..PROFILE }, 86_400..172_800).unwrap();
+        assert_eq!(schedule.start, start);
+        assert_eq!(schedule.slots.len(), 3);
+    }
+}
+
+#[test]
+fn tariff_continues_numbering_across_price_batches() {
+    use iec61850_kit::client::TariffRead;
+
+    let profile = TariffProfile { first_price: "ValING001", ..PROFILE };
+    let header = vec![
+        Value::Integer(144),
+        Value::Integer(10),
+        Value::Structure(vec![Value::Integer(85)]),
+        Value::UtcTime(UtcTime::from_unix(0, 0, TimeQuality::SYNCHRONIZED)),
+    ];
+    let read = TariffRead::new(NODE, profile, 0..86_400).unwrap();
+    let mut read = read.accept(Ok(header.clone())).unwrap().continue_value().unwrap();
+    for range in [1..129, 129..145] {
+        let expected: Vec<_> = range.clone().map(|i| (format!("{NODE}.ValING{i:03}.setVal"), Fc::SP)).collect();
+        assert_eq!(read.fields(), expected);
+        let values = range.map(Value::Integer).collect();
+        read = read.accept(Ok(values)).unwrap().continue_value().unwrap();
+    }
+    let day = read.accept(Ok(header)).unwrap().break_value().unwrap();
+    assert_eq!(day.slots[128].utc, 76_800..77_400);
+    assert_eq!(day.slots[143].utc.end, 86_400);
+}
+
+#[test]
+fn tariff_retries_only_unsent_oversized_batches() {
+    use iec61850_kit::client::TariffRead;
+
+    let new_read = || TariffRead::new(NODE, PROFILE, 0..86_400).unwrap();
+    let oversized = || Error::LimitExceeded { limit: "peer max PDU", value: 200 };
+    let mut read = new_read();
+    let original = read.fields();
+    for size in [2, 1] {
+        read = read.accept(Err(oversized())).unwrap().continue_value().unwrap();
+        assert_eq!(read.fields(), original[..size]);
+    }
+    assert_eq!(read.accept(Err(oversized())).err(), Some(oversized()));
+    assert_eq!(new_read().accept(Err(Error::DataAccess(3))).err(), Some(Error::DataAccess(3)));
+    assert_eq!(
+        new_read().with_batch_limit(1).accept(Ok(vec![Value::Integer(3), Value::Integer(8)])).err(),
+        Some(Error::InvalidValue("server returned the wrong number of Read results"))
+    );
 }

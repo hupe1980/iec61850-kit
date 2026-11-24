@@ -1,10 +1,10 @@
 //! Read a fixed-start FSCH tariff for one settlement day.
 
 use std::io::{Read, Write};
-use std::ops::Range;
+use std::ops::{ControlFlow, Range};
 
 use super::Client;
-use crate::common::{Error, Fc, ObjectReference, Result};
+use crate::common::{Error, Fc, ObjectReference, Result, UtcTime};
 use crate::proto::data::{Typed, Value};
 
 /// Object names, settings constraint and price unit for one engineered FSCH instance.
@@ -30,6 +30,8 @@ impl<'a> TariffProfile<'a> {
 /// A complete schedule in the unit supplied by the tariff contract.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TariffSchedule {
+    /// Provider's absolute start timestamp, including its original clock quality.
+    pub start: UtcTime,
     /// Contracted unit, without conversion.
     pub price_unit: String,
     /// Consecutive delivery intervals in chronological order.
@@ -107,7 +109,7 @@ fn interval_seconds(value: &Value, units: &Value) -> Result<u32> {
     u32::try_from(scaled).ok().filter(|&s| s > 0).ok_or(INVALID)
 }
 
-fn dimensions(header: &[Value], window: &Range<u32>) -> Result<(u32, u32)> {
+fn dimensions(header: &[Value], window: &Range<u32>) -> Result<(u32, u32, UtcTime)> {
     let [count, interval, units, start] = header else { return Err(Error::InvalidValue("incomplete FSCH header")) };
     let count = count
         .as_i64()
@@ -123,15 +125,30 @@ fn dimensions(header: &[Value], window: &Range<u32>) -> Result<(u32, u32)> {
     if start.seconds != window.start || start.fraction != 0 || count.checked_mul(seconds).and_then(|span| start.seconds.checked_add(span)) != Some(window.end) {
         return Err(Error::InvalidValue("FSCH schedule does not cover the requested UTC window"));
     }
-    Ok((count, seconds))
+    Ok((count, seconds, start))
 }
 
-impl<S: Read + Write> Client<S> {
-    /// Read the fixed UTC start, interval and numbered settings for a 23–25 hour delivery day.
-    ///
-    /// Supply both UTC boundaries for the provider's local day. Prices must remain stable
-    /// during the read. A final header read detects a changed start, count or interval.
-    pub fn read_tariff_schedule(&mut self, node: &str, profile: TariffProfile<'_>, window: Range<u32>) -> Result<TariffSchedule> {
+/// A transport-independent FSCH read. Dropping it discards the unfinished schedule.
+pub struct TariffRead<'a> {
+    node: &'a str,
+    profile: TariffProfile<'a>,
+    window: Range<u32>,
+    series: PriceSeries<'a>,
+    phase: Phase,
+    batch_limit: usize,
+    header_part: Vec<Value>,
+    slots: Vec<TariffSlot>,
+}
+
+enum Phase {
+    Header,
+    Prices { header: Vec<Value>, count: usize, seconds: u32, start: UtcTime },
+    Verify { header: Vec<Value>, start: UtcTime },
+}
+
+impl<'a> TariffRead<'a> {
+    /// Begin a read for the provider's 23–25 hour delivery day.
+    pub fn new(node: &'a str, profile: TariffProfile<'a>, window: Range<u32>) -> Result<Self> {
         let fc = profile.settings_fc;
         if !matches!(fc, Fc::SP | Fc::SG) {
             return Err(Error::InvalidValue("FSCH settings require SP or active SG"));
@@ -150,49 +167,108 @@ impl<S: Read + Write> Client<S> {
             return Err(Error::InvalidValue("expected a delivery window of 23 to 25 hours in UTC seconds"));
         }
         let series = PriceSeries::parse(profile.first_price)?;
-        let names = [
-            format!("{node}.NumEntr.setVal"),
-            format!("{node}.SchdIntv.setVal"),
-            format!("{node}.SchdIntv.units"),
-            format!("{node}.{}.setTm", profile.start_object),
-        ];
-        let header_refs = names.each_ref().map(String::as_str).into_iter().zip([fc, fc, Fc::CF, fc]).collect::<Vec<_>>();
-        let header = self.read_tariff_fields(&header_refs)?;
-        let (count, seconds) = dimensions(&header, &window)?;
-        let mut slots = Vec::with_capacity(count as usize);
-        let mut start = window.start;
-        for first in (1..=count).step_by(128) {
-            let last = count.min(first + 127);
-            let names: Vec<_> = (first..=last).map(|i| format!("{node}.{}{i:0width$}.{}", series.family, series.attribute, width = series.width)).collect();
-            let refs: Vec<_> = names.iter().map(|s| (s.as_str(), fc)).collect();
-            let values = self.read_tariff_fields(&refs)?;
-            for value in values {
-                let end = start + seconds; // Coverage was checked before reading prices.
-                slots.push(TariffSlot { utc: start..end, price: series.price(&value)? });
-                start = end;
-            }
-        }
-        if self.read_tariff_fields(&header_refs)? != header {
-            return Err(Error::InvalidValue("FSCH header changed while reading prices"));
-        }
-        Ok(TariffSchedule { price_unit: profile.price_unit.into(), slots })
+        Ok(Self { node, profile, window, series, phase: Phase::Header, batch_limit: 128, header_part: Vec::new(), slots: Vec::new() })
     }
 
-    fn read_tariff_fields(&mut self, mut refs: &[(&str, Fc)]) -> Result<Vec<Value>> {
-        let mut out = Vec::with_capacity(refs.len());
-        let mut batch = self.limits.max_dataset_members.max(1);
-        while !refs.is_empty() {
-            let (next, rest) = refs.split_at(batch.min(refs.len()));
-            match self.read_many(next) {
-                // The encoder rejects oversized requests before transmission.
-                Err(Error::LimitExceeded { limit: "peer max PDU", .. }) if next.len() > 1 => batch = next.len() / 2,
-                result => {
-                    out.extend(result?);
-                    refs = rest;
+    /// Cap the number of fields per MMS Read. A zero limit permits a single field.
+    #[must_use]
+    pub fn with_batch_limit(mut self, limit: usize) -> Self {
+        self.batch_limit = limit.clamp(1, 128);
+        self
+    }
+
+    fn field_count(&self) -> usize {
+        let remaining = match self.phase {
+            Phase::Prices { count, .. } => count - self.slots.len(),
+            _ => 4 - self.header_part.len(),
+        };
+        remaining.min(self.batch_limit)
+    }
+
+    /// Ordered fields for the next MMS Read. Supply its outcome to [`Self::accept`].
+    pub fn fields(&self) -> Vec<(String, Fc)> {
+        let node = self.node;
+        let fc = self.profile.settings_fc;
+        if matches!(self.phase, Phase::Prices { .. }) {
+            let first = self.slots.len() + 1;
+            let series = &self.series;
+            return (first..first + self.field_count())
+                .map(|i| (format!("{node}.{}{i:0width$}.{}", series.family, series.attribute, width = series.width), fc))
+                .collect();
+        }
+        [
+            (format!("{node}.NumEntr.setVal"), fc),
+            (format!("{node}.SchdIntv.setVal"), fc),
+            (format!("{node}.SchdIntv.units"), Fc::CF),
+            (format!("{node}.{}.setTm", self.profile.start_object), fc),
+        ]
+        .into_iter()
+        .skip(self.header_part.len())
+        .take(self.field_count())
+        .collect()
+    }
+
+    /// Supply the outcome of one request in field order. A local `peer max PDU` error
+    /// before transmission retries a smaller batch. Only the closing header completes the read.
+    pub fn accept(mut self, response: Result<Vec<Value>>) -> Result<ControlFlow<TariffSchedule, Self>> {
+        let count = self.field_count();
+        let values = match response {
+            Err(Error::LimitExceeded { limit: "peer max PDU", .. }) if count > 1 => {
+                self.batch_limit = count / 2;
+                return Ok(ControlFlow::Continue(self));
+            }
+            result => result?,
+        };
+        if values.len() != count {
+            return Err(Error::InvalidValue("server returned the wrong number of Read results"));
+        }
+        let values = if matches!(self.phase, Phase::Header | Phase::Verify { .. }) && count < 4 {
+            self.header_part.extend(values);
+            if self.header_part.len() < 4 {
+                return Ok(ControlFlow::Continue(self));
+            }
+            std::mem::take(&mut self.header_part)
+        } else {
+            values
+        };
+        self.phase = match self.phase {
+            Phase::Header => {
+                let (count, seconds, start) = dimensions(&values, &self.window)?;
+                self.slots.reserve(count as usize);
+                Phase::Prices { header: values, count: count as usize, seconds, start }
+            }
+            Phase::Prices { header, count, seconds, start } => {
+                let mut begin = self.slots.last().map_or(start.seconds, |slot| slot.utc.end);
+                for value in values {
+                    let end = begin + seconds;
+                    self.slots.push(TariffSlot { utc: begin..end, price: self.series.price(&value)? });
+                    begin = end;
                 }
+                if self.slots.len() == count { Phase::Verify { header, start } } else { Phase::Prices { header, count, seconds, start } }
+            }
+            Phase::Verify { header, start } => {
+                if values != header {
+                    return Err(Error::InvalidValue("FSCH header changed while reading prices"));
+                }
+                return Ok(ControlFlow::Break(TariffSchedule { start, price_unit: self.profile.price_unit.into(), slots: self.slots }));
+            }
+        };
+        Ok(ControlFlow::Continue(self))
+    }
+}
+
+impl<S: Read + Write> Client<S> {
+    /// Read a fixed-start tariff for the provider's local day. Prices must remain stable during the read.
+    pub fn read_tariff_schedule(&mut self, node: &str, profile: TariffProfile<'_>, window: Range<u32>) -> Result<TariffSchedule> {
+        let mut read = TariffRead::new(node, profile, window)?.with_batch_limit(self.limits.max_dataset_members);
+        loop {
+            let fields = read.fields();
+            let refs: Vec<_> = fields.iter().map(|(name, fc)| (name.as_str(), *fc)).collect();
+            match read.accept(self.read_many(&refs))? {
+                ControlFlow::Continue(next) => read = next,
+                ControlFlow::Break(day) => return Ok(day),
             }
         }
-        Ok(out)
     }
 }
 
